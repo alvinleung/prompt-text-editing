@@ -1,5 +1,5 @@
 import { useEventListener } from "usehooks-ts";
-import { Document } from "./DocumentProvider";
+import { Document, Paragraph, useDocument } from "./DocumentProvider";
 import {
   createContext,
   useCallback,
@@ -37,15 +37,20 @@ export type SelectionRange = {
   to: BlockPosition | null;
 };
 
-const CURSOR_POSITION_ZERO: BlockPosition = {
+const WORD_ZERO: BlockPosition = {
   paragraph: 0,
   sentence: 0,
   word: 0,
 };
 
+const SENTENCE_ZERO: SentencePosition = {
+  paragraph: 0,
+  sentence: 0,
+};
+
 const CursorStateContext = createContext({
   // position
-  position: CURSOR_POSITION_ZERO as BlockPosition,
+  position: WORD_ZERO as BlockPosition,
   setPosition: (position: BlockPosition) => {
     position;
   },
@@ -60,8 +65,8 @@ const CursorStateContext = createContext({
 
   // selection range
   selectionRange: {
-    from: CURSOR_POSITION_ZERO,
-    to: CURSOR_POSITION_ZERO,
+    from: WORD_ZERO,
+    to: WORD_ZERO,
   } as SelectionRange | null,
   selectFrom: (position: BlockPosition) => {},
   selectTo: (position: BlockPosition) => {},
@@ -258,11 +263,93 @@ export function isInsideSelectionRange(
   });
 }
 
-// TODO: implement move selection using arrow keys
-function moveSelection(doc: Document, range: SelectionRange, offset: number) {
+function moveSentencePosition(
+  doc: Document,
+  position: SentencePosition,
+  steps: number = 1,
+  ignoreEmptyParagraph: boolean = true
+): SentencePosition {
+  let current = { ...position };
+
+  const direction = Math.sign(steps);
+  const absSteps = Math.abs(steps);
+
+  const isEmptyParagraph = (paragraph: Paragraph) =>
+    paragraph.length === 1 && paragraph[0][0] === "";
+
+  for (let i = 0; i < absSteps; i++) {
+    if (direction > 0) {
+      // Moving forward
+      if (current.sentence === doc[current.paragraph].length - 1) {
+        while (current.paragraph < doc.length - 1) {
+          current.paragraph++;
+          if (
+            !ignoreEmptyParagraph ||
+            !isEmptyParagraph(doc[current.paragraph])
+          ) {
+            current.sentence = 0;
+            break;
+          }
+        }
+      } else {
+        current.sentence++;
+      }
+
+      if (
+        current.paragraph === doc.length - 1 &&
+        current.sentence === doc[current.paragraph].length - 1
+      ) {
+        break; // At the end of the document
+      }
+    } else {
+      // Moving backward
+      if (current.sentence === 0) {
+        while (current.paragraph > 0) {
+          current.paragraph--;
+          if (
+            !ignoreEmptyParagraph ||
+            !isEmptyParagraph(doc[current.paragraph])
+          ) {
+            current.sentence = doc[current.paragraph].length - 1;
+            break;
+          }
+        }
+      } else {
+        current.sentence--;
+      }
+
+      if (current.paragraph === 0 && current.sentence === 0) {
+        break; // At the beginning of the document
+      }
+    }
+  }
+
+  return current;
+}
+
+function moveSelection(
+  doc: Document,
+  range: SelectionRange,
+  offset: number,
+  preserveRange = true,
+  ignoreEmptyParagraph: boolean = true
+): SelectionRange | undefined {
   return forPrecision([range.from, range.to || range.from], {
-    sentence: ([from, to]) => {},
-    paragraph: function ([from, to]): boolean {
+    sentence: ([from, to]) => {
+      const newFrom = moveSentencePosition(
+        doc,
+        from,
+        offset,
+        ignoreEmptyParagraph
+      );
+      const newTo = moveSentencePosition(doc, to, offset, ignoreEmptyParagraph);
+
+      return {
+        from: preserveRange ? newFrom : newTo,
+        to: preserveRange ? newTo : newTo,
+      } as SelectionRange;
+    },
+    paragraph: function ([from, to]) {
       throw new Error("Function not implemented.");
     },
     word: function ([from, to]) {
@@ -270,9 +357,136 @@ function moveSelection(doc: Document, range: SelectionRange, offset: number) {
     },
   });
 }
+function expandSelection(
+  doc: Document,
+  range: SelectionRange,
+  offset: number
+): SelectionRange {
+  return forPrecision([range.from, range.to || range.from], {
+    sentence: ([from, to]) => {
+      return {
+        from: from,
+        to: moveSentencePosition(doc, to, offset),
+      };
+    },
+    paragraph: ([from, to]) => {
+      throw new Error("Paragraph-level expansion not implemented.");
+    },
+    word: function ([from, to]) {
+      throw new Error("Word-level expansion not implemented.");
+    },
+  }) as SelectionRange;
+}
+
+function distanceBetweenSentences(
+  doc: Document,
+  from: SentencePosition,
+  to: SentencePosition
+): number {
+  let distance = 0;
+
+  // If the positions are in the same paragraph
+  if (from.paragraph === to.paragraph) {
+    return Math.abs(to.sentence - from.sentence);
+  }
+
+  // Count sentences in paragraphs between 'from' and 'to'
+  const startParagraph = Math.min(from.paragraph, to.paragraph);
+  const endParagraph = Math.max(from.paragraph, to.paragraph);
+
+  for (let p = startParagraph; p <= endParagraph; p++) {
+    if (p === from.paragraph) {
+      // Count remaining sentences in the 'from' paragraph
+      distance += doc[p].length - from.sentence;
+    } else if (p === to.paragraph) {
+      // Count sentences up to 'to' in the last paragraph
+      distance += to.sentence;
+    } else {
+      // Count all sentences in intermediate paragraphs
+      distance += doc[p].length;
+    }
+  }
+
+  return distance;
+}
+function getNextParagraphLastSentence(
+  doc: Document,
+  pos: SentencePosition,
+  ignoreEmptyParagraph: boolean = true
+) {
+  if (pos.sentence !== doc[pos.paragraph].length - 1) {
+    return {
+      paragraph: pos.paragraph,
+      sentence: doc[pos.paragraph].length - 1,
+    };
+  }
+
+  if (pos.paragraph >= doc.length - 1) {
+    return null;
+  }
+
+  const nextParagraph = doc[pos.paragraph + 1];
+  const isNextParagraphEmpty =
+    nextParagraph.length === 1 && nextParagraph[0][0] === "";
+
+  if (ignoreEmptyParagraph && isNextParagraphEmpty) {
+    if (pos.paragraph < doc.length - 2) {
+      return getNextParagraphLastSentence(
+        doc,
+        {
+          paragraph: pos.paragraph + 1,
+          sentence: 0,
+        },
+        ignoreEmptyParagraph
+      );
+    }
+    return null;
+  }
+
+  return {
+    paragraph: pos.paragraph + 1,
+    sentence: nextParagraph.length - 1,
+  };
+}
+
+function getPrevParagraphFirstSentence(
+  doc: Document,
+  pos: SentencePosition,
+  ignoreEmptyParagraph: boolean = true
+) {
+  if (pos.sentence !== 0) {
+    return {
+      paragraph: pos.paragraph,
+      sentence: 0,
+    };
+  }
+
+  if (pos.paragraph === 0) {
+    return null;
+  }
+
+  const prevParagraph = doc[pos.paragraph - 1];
+  const isPrevParagraphEmpty =
+    prevParagraph.length === 1 && prevParagraph[0][0] === "";
+  if (ignoreEmptyParagraph && isPrevParagraphEmpty) {
+    return getPrevParagraphFirstSentence(
+      doc,
+      {
+        paragraph: pos.paragraph - 1,
+        sentence: 0,
+      },
+      ignoreEmptyParagraph
+    );
+  }
+
+  return {
+    paragraph: pos.paragraph - 1,
+    sentence: 0,
+  };
+}
 
 export function CursorStateProvider({ children }: Props) {
-  const [position, setPosition] = useState<BlockPosition>(CURSOR_POSITION_ZERO);
+  const [position, setPosition] = useState<BlockPosition>(WORD_ZERO);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionRange, setSelectionRange] = useState<SelectionRange | null>(
     null
@@ -280,8 +494,11 @@ export function CursorStateProvider({ children }: Props) {
   const [selectionLevel, setSelectionLevel] = useState(
     SelectionLevel.PARAGRAPH
   );
+  const { document } = useDocument();
+
   const [hasSelectionRangeChanged, setHasSelectionRangeChanged] =
     useState(false);
+
   useEffect(() => {
     setHasSelectionRangeChanged(true);
   }, [selectionRange]);
@@ -301,7 +518,7 @@ export function CursorStateProvider({ children }: Props) {
   const selectTo = useCallback((untilPosition: BlockPosition) => {
     setSelectionRange((prev) => {
       return {
-        from: prev?.from || CURSOR_POSITION_ZERO,
+        from: prev?.from || WORD_ZERO,
         to: untilPosition,
       };
     });
@@ -310,6 +527,9 @@ export function CursorStateProvider({ children }: Props) {
     setIsSelecting(false);
   }, []);
 
+  // ==============================================
+  // FEATURE: Selection via mouse
+  // ==============================================
   useEffect(() => {
     const handleMouseUp = () => {
       setIsSelecting(false);
@@ -326,23 +546,148 @@ export function CursorStateProvider({ children }: Props) {
     };
   }, []);
 
+  // ==============================================
+  // FEATURE: selection level
+  // ==============================================
   useEventListener("keydown", (e) => {
     if (e.key === "Shift") {
       setSelectionLevel(SelectionLevel.SENTENCE);
     }
   });
+
   useEventListener("keyup", (e) => {
     if (e.key === "Shift") {
       setSelectionLevel(SelectionLevel.WORD);
     }
   });
 
-  useEventListener("keydown", (e) => {
-    if (e.key === "Down") {
-    }
+  // ==============================================
+  // FEATURE: move selection
+  // ==============================================
+  useHotkeys("ArrowUp", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) {
+        // enter sentence selection mode when start using arrow keys
+        return {
+          from: SENTENCE_ZERO,
+          to: SENTENCE_ZERO,
+        };
+      }
+      return moveSelection(document, prev, -1, false) || prev;
+    });
   });
 
-  // press escape to cancel selection
+  useHotkeys("ArrowDown", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) {
+        // enter sentence selection mode when start using arrow keys
+        return {
+          from: SENTENCE_ZERO,
+          to: SENTENCE_ZERO,
+        };
+      }
+      return moveSelection(document, prev, 1, false) || prev;
+    });
+  });
+  // ==============================================
+  // FEATURE: move selection preserving range
+  // ==============================================
+  useHotkeys("meta+shift+ArrowDown", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      return moveSelection(document, prev, 1, true) || prev;
+    });
+  });
+
+  useHotkeys("meta+shift+ArrowUp", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      return moveSelection(document, prev, -1, true) || prev;
+    });
+  });
+
+  // ==============================================
+  // FEATURE: expand selection
+  // ==============================================
+  useHotkeys("shift+ArrowUp", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      return expandSelection(document, prev, -1) || prev;
+    });
+  });
+  useHotkeys("shift+ArrowDown", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      return expandSelection(document, prev, 1) || prev;
+    });
+  });
+
+  // ==============================================
+  // FEATURE: option + arrow keys to go to next/prev paragraph
+  // ==============================================
+  useHotkeys("alt+ArrowDown", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      const nextParagraphLastSentence = getNextParagraphLastSentence(
+        document,
+        prev.from as SentencePosition
+      );
+      if (nextParagraphLastSentence === null) return prev;
+      return {
+        from: nextParagraphLastSentence,
+        to: nextParagraphLastSentence,
+      };
+    });
+  });
+  useHotkeys("alt+ArrowUp", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      const prevParagraphFirstSentence = getPrevParagraphFirstSentence(
+        document,
+        prev.from as SentencePosition
+      );
+      if (prevParagraphFirstSentence === null) return prev;
+      return {
+        from: prevParagraphFirstSentence,
+        to: prevParagraphFirstSentence,
+      };
+    });
+  });
+
+  // ==============================================
+  // FEATURE: option + shift + arrow keys to expand selection to next/prev paragraph
+  // ==============================================
+  useHotkeys("alt+shift+ArrowUp", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      const prevParagraphFirstSentence = getPrevParagraphFirstSentence(
+        document,
+        (prev.to as SentencePosition) || (prev.from as SentencePosition)
+      );
+      return {
+        from: prev.from,
+        to: prevParagraphFirstSentence,
+      };
+    });
+  });
+
+  useHotkeys("alt+shift+ArrowDown", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      const nextParagraphLastSentence = getNextParagraphLastSentence(
+        document,
+        (prev.to as SentencePosition) || (prev.from as SentencePosition)
+      );
+      return {
+        from: prev.from,
+        to: nextParagraphLastSentence,
+      };
+    });
+  });
+
+  // ==============================================
+  // FEATURE: press escape to cancel selection
+  // ==============================================
   useHotkeys("esc", () => {
     setSelectionRange(null);
     stopSelecting();

@@ -11,11 +11,11 @@ type Props = {
 
 const PromptTextEditor = (props: Props) => {
   return (
-    <CursorStateProvider>
-      <DocumentProvider>
+    <DocumentProvider>
+      <CursorStateProvider>
         <DocumentBlock />
-      </DocumentProvider>
-    </CursorStateProvider>
+      </CursorStateProvider>
+    </DocumentProvider>
   );
 };
 

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  getSentencePositionAbs,
   isEqualPosition,
   isInsideSelectionRange,
   SelectionLevel,
@@ -11,7 +10,6 @@ import { Sentence, useDocument } from "../DocumentProvider";
 import { WordBlock } from "./WordBlock";
 import React from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useEventListener } from "usehooks-ts";
 
 type SentenceBlockProp = {
   content: Sentence;
@@ -38,7 +36,7 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
 
   const commentedStyle = isCommented ? "opacity-20" : "opacity-100";
 
-  useHotkeys("x", () => {
+  useHotkeys("shift+x", () => {
     if (!isSelected) return;
     setIsCommented((commented) => !commented);
     setIsSelected(false);
@@ -49,14 +47,14 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
       setIsSelected(false);
       return;
     }
-    if (!isSelecting) return;
+    // if (!isSelecting) return;
     if (isInsideSelectionRange(document, position, selectionRange)) {
       // console.log("inside selection range");
       setIsSelected(true);
       return;
     }
     setIsSelected(false);
-  }, [selectionRange, position, isSelecting]);
+  }, [selectionRange, position, document]);
 
   useEffect(() => {
     if (!isHovering) return;
@@ -77,15 +75,12 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     selectFrom(position);
   };
 
-  const handleMouseUp = () => {};
-
   return (
     <span
-      className={`${selectionColorStyle} ${commentedStyle}`}
+      className={`${commentedStyle}`}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
     >
       {/* {isCommented && (
         <span
@@ -98,23 +93,29 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
       {/* {!isCommented && */}
       {content.map((item, index) => {
         const isLastElement = index === content.length - 1;
+        const isFirstElement = index === 0;
         const isVariable = typeof item !== "string";
         return (
           <React.Fragment key={index}>
-            {!isVariable && (
-              <WordBlock
-                position={{
-                  paragraph: position.paragraph,
-                  sentence: position.sentence,
-                  word: index,
-                }}
-                content={item}
-              />
+            {!isVariable && isFirstElement && (
+              <span className={`${selectionColorStyle} py-[2.5px]`}> </span>
             )}
-            {/* add a space between word */}
-            {!isLastElement && <span> </span>}
-            {/* adding a period at the end of the sentence */}
-            {isLastElement && <span>{"."}</span>}
+            <span className={`inline-block ${selectionColorStyle}`}>
+              {!isVariable && (
+                <WordBlock
+                  position={{
+                    paragraph: position.paragraph,
+                    sentence: position.sentence,
+                    word: index,
+                  }}
+                  content={item}
+                />
+              )}
+              {/* add a space between word */}
+            </span>
+            {!isLastElement && (
+              <span className={`${selectionColorStyle} py-[2.5px]`}> </span>
+            )}
           </React.Fragment>
         );
       })}
