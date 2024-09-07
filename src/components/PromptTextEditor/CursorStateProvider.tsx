@@ -258,6 +258,19 @@ export function isInsideSelectionRange(
   });
 }
 
+// TODO: implement move selection using arrow keys
+function moveSelection(doc: Document, range: SelectionRange, offset: number) {
+  return forPrecision([range.from, range.to || range.from], {
+    sentence: ([from, to]) => {},
+    paragraph: function ([from, to]): boolean {
+      throw new Error("Function not implemented.");
+    },
+    word: function ([from, to]) {
+      throw new Error("Function not implemented.");
+    },
+  });
+}
+
 export function CursorStateProvider({ children }: Props) {
   const [position, setPosition] = useState<BlockPosition>(CURSOR_POSITION_ZERO);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -312,6 +325,22 @@ export function CursorStateProvider({ children }: Props) {
       window.removeEventListener("mousedown", handleMouseDown);
     };
   }, []);
+
+  useEventListener("keydown", (e) => {
+    if (e.key === "Shift") {
+      setSelectionLevel(SelectionLevel.SENTENCE);
+    }
+  });
+  useEventListener("keyup", (e) => {
+    if (e.key === "Shift") {
+      setSelectionLevel(SelectionLevel.WORD);
+    }
+  });
+
+  useEventListener("keydown", (e) => {
+    if (e.key === "Down") {
+    }
+  });
 
   // press escape to cancel selection
   useHotkeys("esc", () => {

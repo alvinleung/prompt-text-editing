@@ -1,20 +1,40 @@
-import { getWordPositionAbs, WordPosition } from "../CursorStateProvider";
+import { useState } from "react";
+import {
+  getWordPositionAbs,
+  SelectionLevel,
+  useCursorState,
+  WordPosition,
+} from "../CursorStateProvider";
 import { useDocument } from "../DocumentProvider";
 
 type WordBlockProp = {
   content: string;
-  isSelected: boolean;
   position: WordPosition;
 };
-export const WordBlock = ({ content, isSelected, position }: WordBlockProp) => {
+export const WordBlock = ({ content, position }: WordBlockProp) => {
   const { document } = useDocument();
+  const { selectionLevel } = useCursorState();
+  const canSelectWord = selectionLevel === SelectionLevel.WORD;
+
+  const [isHovering, setIsHovering] = useState(false);
+  const [isSelected, setIsSelected] = useState(false);
+
+  const selectionColorStyle =
+    canSelectWord && isHovering
+      ? "bg-zinc-700"
+      : isSelected
+      ? "bg-zinc-700"
+      : "";
+
   const handleSelect = () => {
     // console.log(getWordPositionAbs(document, position));
   };
   return (
     <span
-      onClick={handleSelect}
-      className={`inline-block py-[4px] ${isSelected ? "bg-gray-800" : ""}`}
+      onMouseDown={handleSelect}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      className={`inline-block py-[4px] ${selectionColorStyle}`}
     >
       {content}
     </span>

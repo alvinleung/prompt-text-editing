@@ -3,12 +3,15 @@ import {
   getSentencePositionAbs,
   isEqualPosition,
   isInsideSelectionRange,
+  SelectionLevel,
   SentencePosition,
   useCursorState,
 } from "../CursorStateProvider";
 import { Sentence, useDocument } from "../DocumentProvider";
 import { WordBlock } from "./WordBlock";
 import React from "react";
+import { useHotkeys } from "react-hotkeys-hook";
+import { useEventListener } from "usehooks-ts";
 
 type SentenceBlockProp = {
   content: Sentence;
@@ -16,35 +19,30 @@ type SentenceBlockProp = {
 };
 
 export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
-  const { selectFrom, selectTo, selectionRange, isSelecting } =
+  const { selectionLevel, selectFrom, selectTo, selectionRange, isSelecting } =
     useCursorState();
   const { document } = useDocument();
+
+  const isSentenceSelectionMode = selectionLevel === SelectionLevel.SENTENCE;
 
   const [isHovering, setIsHovering] = useState(false);
   const [isSelected, setIsSelected] = useState(false);
   const [isCommented, setIsCommented] = useState(false);
 
-  const selectionColorStyle = isHovering
-    ? "bg-zinc-700"
-    : isSelected
-    ? "bg-zinc-700"
-    : "";
+  const selectionColorStyle =
+    isSentenceSelectionMode && isHovering
+      ? "bg-zinc-700"
+      : isSelected
+      ? "bg-zinc-700"
+      : "";
 
-  const commentedStyle = isCommented ? "opacity-40" : "opacity-100";
+  const commentedStyle = isCommented ? "opacity-20" : "opacity-100";
 
-  useEffect(() => {
+  useHotkeys("x", () => {
     if (!isSelected) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "/") {
-        setIsCommented((commented) => !commented);
-        setIsSelected(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isSelected]);
+    setIsCommented((commented) => !commented);
+    setIsSelected(false);
+  });
 
   useEffect(() => {
     if (!selectionRange) {
@@ -75,6 +73,7 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
   }, [isHovering, selectionRange, position, selectTo]);
 
   const handleMouseDown = () => {
+    if (!isSentenceSelectionMode) return;
     selectFrom(position);
   };
 
@@ -88,6 +87,15 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     >
+      {/* {isCommented && (
+        <span
+          className="bg-zinc-600 px-1"
+          onClick={() => setIsCommented(false)}
+        >
+          ...
+        </span>
+      )} */}
+      {/* {!isCommented && */}
       {content.map((item, index) => {
         const isLastElement = index === content.length - 1;
         const isVariable = typeof item !== "string";
@@ -101,7 +109,6 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
                   word: index,
                 }}
                 content={item}
-                isSelected={false}
               />
             )}
             {/* add a space between word */}
