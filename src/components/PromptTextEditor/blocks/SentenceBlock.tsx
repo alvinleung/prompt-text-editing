@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   isEqualPosition,
   isInsideSelectionRange,
-  SelectionLevel,
+  Precision,
   SentencePosition,
   useCursorState,
 } from "../CursorStateProvider";
@@ -17,22 +17,21 @@ type SentenceBlockProp = {
 };
 
 export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
-  const { selectionLevel, selectFrom, selectTo, selectionRange, isSelecting } =
-    useCursorState();
+  const {
+    selectionLevel,
+    inputMode,
+    selectFrom,
+    selectTo,
+    selectionRange,
+    isSelecting,
+  } = useCursorState();
   const { document } = useDocument();
 
-  const isSentenceSelectionMode = selectionLevel === SelectionLevel.SENTENCE;
+  const isSentenceSelectionMode = selectionLevel === Precision.SENTENCE;
 
   const [isHovering, setIsHovering] = useState(false);
   const [isSelected, setIsSelected] = useState(false);
   const [isCommented, setIsCommented] = useState(false);
-
-  const selectionColorStyle =
-    isSentenceSelectionMode && isHovering
-      ? "bg-zinc-700"
-      : isSelected
-      ? "bg-zinc-700"
-      : "";
 
   const commentedStyle = isCommented ? "opacity-20" : "opacity-100";
 
@@ -48,15 +47,19 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
       return;
     }
     // if (!isSelecting) return;
-    if (isInsideSelectionRange(document, position, selectionRange)) {
+    if (
+      isInsideSelectionRange(document, position, selectionRange) &&
+      isSentenceSelectionMode
+    ) {
       // console.log("inside selection range");
       setIsSelected(true);
       return;
     }
     setIsSelected(false);
-  }, [selectionRange, position, document]);
+  }, [selectionRange, position, document, isSentenceSelectionMode]);
 
   useEffect(() => {
+    if (!isSentenceSelectionMode) return;
     if (!isHovering) return;
     if (!isSelecting) return;
     if (!selectionRange) return;
@@ -68,7 +71,14 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     if (isCurrentPositionAtSelectionBound) return;
 
     selectTo(position);
-  }, [isHovering, selectionRange, position, selectTo]);
+  }, [
+    isHovering,
+    selectionRange,
+    position,
+    selectTo,
+    isSentenceSelectionMode,
+    isSelecting,
+  ]);
 
   const handleMouseDown = () => {
     if (!isSentenceSelectionMode) return;
@@ -97,25 +107,20 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
         const isVariable = typeof item !== "string";
         return (
           <React.Fragment key={index}>
-            {!isVariable && isFirstElement && (
-              <span className={`${selectionColorStyle} py-[2.5px]`}> </span>
+            {!isVariable && (
+              <WordBlock
+                position={{
+                  paragraph: position.paragraph,
+                  sentence: position.sentence,
+                  word: index,
+                }}
+                content={item}
+                spaceBefore={isFirstElement}
+                spaceAfter={!isLastElement}
+                isHoveringParentSentence={isHovering && inputMode === "mouse"}
+              />
             )}
-            <span className={`inline-block ${selectionColorStyle}`}>
-              {!isVariable && (
-                <WordBlock
-                  position={{
-                    paragraph: position.paragraph,
-                    sentence: position.sentence,
-                    word: index,
-                  }}
-                  content={item}
-                />
-              )}
-              {/* add a space between word */}
-            </span>
-            {!isLastElement && (
-              <span className={`${selectionColorStyle} py-[2.5px]`}> </span>
-            )}
+            {/* add a space between word */}
           </React.Fragment>
         );
       })}

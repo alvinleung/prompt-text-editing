@@ -1,5 +1,12 @@
-import { ParagraphPosition } from "../CursorStateProvider";
-import { Paragraph } from "../DocumentProvider";
+import {
+  createPosition,
+  createSelection,
+  getPrecision,
+  ParagraphPosition,
+  SentencePosition,
+  useCursorState,
+} from "../CursorStateProvider";
+import { Paragraph, useDocument } from "../DocumentProvider";
 import { SentenceBlock } from "./SentenceBlock";
 
 type ParagraphBlockProps = {
@@ -7,8 +14,58 @@ type ParagraphBlockProps = {
   position: ParagraphPosition;
 };
 export const ParagraphBlock = ({ content, position }: ParagraphBlockProps) => {
+  const {
+    position: cursorPosition,
+    selectionRange,
+    setPosition,
+    setSelectionRange,
+    selectionLevel,
+    selectFrom,
+    selectTo,
+  } = useCursorState();
+
+  const { document } = useDocument();
+
+  // clicking
+  const handleMouseDown = () => {
+    // auto select the last selection in the paragraph
+    const lastSentence = document[position.paragraph].length - 1;
+    const lastWord = document[position.paragraph][lastSentence].length - 1;
+
+    const lastPositionInParagraph = createPosition(
+      {
+        paragraph: position.paragraph,
+        sentence: lastSentence,
+        word: lastWord,
+      },
+      selectionLevel,
+    );
+    selectFrom(lastPositionInParagraph);
+  };
+
+  const handleMouseEnter = () => {
+    if (!selectionRange) return;
+
+    // auto select the last selection in the paragraph
+    const lastSentence = document[position.paragraph].length - 1;
+    const lastWord = document[position.paragraph][lastSentence].length - 1;
+
+    const lastPositionInParagraph = createPosition(
+      {
+        paragraph: position.paragraph,
+        sentence: lastSentence,
+        word: lastWord,
+      },
+      selectionLevel,
+    );
+    selectTo(lastPositionInParagraph);
+  };
+
   return (
-    <div>
+    <div
+      onMouseDownCapture={handleMouseDown}
+      onMouseEnterCapture={handleMouseEnter}
+    >
       {content.map((content, index) => {
         return (
           <SentenceBlock

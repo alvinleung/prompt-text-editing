@@ -8,7 +8,8 @@
  *
  */
 
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
+import { WordPosition } from "./CursorStateProvider";
 
 interface Variable {
   id: string;
@@ -62,6 +63,11 @@ Identify the items immediately without preamble.
 
 const EditorContentContext = createContext({
   document: [] as Document,
+  rawText: "",
+  insertWord: (position: WordPosition, word: string) => {},
+  deleteWord: (position: WordPosition) => {},
+  updateWord: (position: WordPosition, word: string) => {},
+  getWord: (position: WordPosition) => {},
 });
 export function useDocument() {
   return useContext(EditorContentContext);
@@ -74,8 +80,48 @@ export function DocumentProvider({ children }: React.PropsWithChildren<Props>) {
     return createDocument(CONTENT);
   }, []);
 
+  const [documentState, setDocumentState] = useState(document);
+
+  const updateWord = (position: WordPosition, word: string) => {
+    setDocumentState((prev) => {
+      prev[position.paragraph][position.sentence][position.word] = word;
+      return prev;
+    });
+  };
+
+  const insertWord = (position: WordPosition, word: string) => {
+    setDocumentState((prev) => {
+      prev[position.paragraph][position.sentence].splice(
+        position.word,
+        0,
+        word
+      );
+      return prev;
+    });
+  };
+
+  const deleteWord = (position: WordPosition) => {
+    setDocumentState((prev) => {
+      prev[position.paragraph][position.sentence].splice(position.word, 1);
+      return prev;
+    });
+  };
+
+  const getWord = (position: WordPosition) => {
+    return documentState[position.paragraph][position.sentence][position.word];
+  };
+
   return (
-    <EditorContentContext.Provider value={{ document }}>
+    <EditorContentContext.Provider
+      value={{
+        document: documentState,
+        insertWord,
+        deleteWord,
+        updateWord,
+        getWord,
+        rawText: CONTENT,
+      }}
+    >
       {children}
     </EditorContentContext.Provider>
   );
