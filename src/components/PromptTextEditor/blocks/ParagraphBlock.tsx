@@ -39,7 +39,7 @@ export const ParagraphBlock = ({ content, position }: ParagraphBlockProps) => {
         sentence: lastSentence,
         word: lastWord,
       },
-      Precision.WORD,
+      selectionLevel,
     );
     selectFrom(lastPositionInParagraph);
   };
