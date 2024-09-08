@@ -1,5 +1,5 @@
-import { useEventListener } from "usehooks-ts";
-import { Document, Paragraph, useDocument } from "./DocumentProvider";
+import { useEventListener, useeventlistener } from "usehooks-ts";
+import { Document, Paragraph, Sentence, useDocument } from "./DocumentProvider";
 import {
   createContext,
   useCallback,
@@ -8,7 +8,12 @@ import {
   useState,
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { ParagraphBlock } from "./blocks/ParagraphBlock";
+
+// include all punctuations
+const PUNTUATION_REGEX = /[\s;:.,]/;
+
+// only peroid
+// const PUNTUATION_REGEX = /[\s.]/;
 
 export interface CharacterPosition {
   paragraph: number;
@@ -166,7 +171,7 @@ export function createPosition(position: BlockPosition, precision?: Precision) {
 }
 export function createSelection(
   from: BlockPosition | null,
-  to?: BlockPosition,
+  to?: BlockPosition | null,
   precision?: Precision,
 ): SelectionRange {
   if (!from) {
@@ -210,8 +215,10 @@ export function convertToWordPosition(
   from: BlockPosition,
   roundingDirection: "start" | "end" = "start",
 ): WordPosition {
-  const sentence = (from as SentencePosition).sentence || 0;
+  // make sure the it is word position
+  if ((from as WordPosition).word) return from as WordPosition;
 
+  const sentence = (from as SentencePosition).sentence || 0;
   const word =
     (from as WordPosition).word || roundingDirection === "start"
       ? 0
@@ -602,8 +609,18 @@ function moveSelection(
       throw new Error("Function not implemented.");
     },
     word: function ([from, to]) {
-      const newFrom = moveWordPosition(doc, from, offset, ignoreEmptyParagraph);
-      const newTo = moveWordPosition(doc, to, offset, ignoreEmptyParagraph);
+      let newFrom = from;
+      let newTo = to;
+      for (let i = 0; i < Math.abs(offset); i++) {
+        newFrom =
+          offset > 0
+            ? getNextWordPosition(doc, newFrom, false) || newFrom
+            : getPreviousWordPosition(doc, newFrom, false) || newFrom;
+        newTo =
+          offset > 0
+            ? getNextWordPosition(doc, newTo, false) || newTo
+            : getPreviousWordPosition(doc, newTo, false) || newTo;
+      }
 
       return {
         from: preserveRange ? newFrom : newTo,
@@ -668,7 +685,18 @@ function expandSelection(
       throw new Error("Paragraph-level expansion not implemented.");
     },
     word: function ([from, to]) {
-      throw new Error("Word-level expansion not implemented.");
+      let newTo = to;
+      for (let i = 0; i < Math.abs(offset); i++) {
+        newTo =
+          offset > 0
+            ? getNextWordPosition(doc, newTo, false) || newTo
+            : getPreviousWordPosition(doc, newTo, false) || newTo;
+      }
+
+      return {
+        from: from,
+        to: newTo,
+      };
     },
   }) as SelectionRange;
 }
@@ -753,6 +781,412 @@ function getPrevParagraphFirstSentence(
   };
 }
 
+function getPrevSentencePosition(
+  document: Document,
+  pos: WordPosition,
+  ignoreEmpty: boolean = true,
+): SentencePosition | null {
+  if (pos.paragraph === 0 && pos.sentence === 0) {
+    return null;
+  }
+
+  if (pos.paragraph === 0 && pos.sentence > 0) {
+    return {
+      paragraph: 0,
+      sentence: pos.sentence - 1,
+    };
+  }
+
+  const isFirstSentence = pos.sentence === 0;
+  const prevSentencePos = {
+    paragraph: isFirstSentence ? pos.paragraph - 1 : pos.paragraph,
+    sentence: isFirstSentence
+      ? document[pos.paragraph - 1].length - 1
+      : pos.sentence - 1,
+  };
+
+  // check if prev sentence empty
+  const prevSentence =
+    document[prevSentencePos.paragraph][prevSentencePos.sentence];
+  if (ignoreEmpty && !prevSentence[0]) {
+    return getPrevSentencePosition(document, {
+      paragraph: prevSentencePos.paragraph,
+      sentence: prevSentencePos.sentence,
+      word: 0,
+    });
+  }
+
+  return prevSentencePos;
+}
+
+function isLastWordInSentence(document: Document, pos: WordPosition) {
+  return pos.word === document[pos.paragraph][pos.sentence].length - 1;
+}
+
+function getPrevPunctuationPosition(document: Document, pos: WordPosition) {
+  return findPreviousWordPositionRecurssively(
+    document,
+    pos,
+    (current, wordBefore) => {
+      // the very first word
+      if (
+        current.position.word === 0 &&
+        current.position.sentence === 0 &&
+        current.position.paragraph === 0
+      ) {
+        return true;
+      }
+
+      if (current.position.word === 0 && current.position.sentence === 0) {
+        return true;
+      }
+
+      const isPunctuation = PUNTUATION_REGEX.test(wordBefore?.word || "");
+
+      if (isPunctuation) {
+        return true;
+      }
+      return false;
+    },
+  ) as WordPosition;
+}
+
+export function findPreviousWordPositionRecurssively(
+  document: Document,
+  pos: WordPosition,
+  searchFunction: (
+    current: { word: string; position: WordPosition },
+    wordBefore: { word: string; position: WordPosition } | null,
+  ) => boolean,
+) {
+  const prevWord = getPreviousWordPosition(document, pos, true);
+  if (prevWord === null) return null;
+  const prevWordStr = document[prevWord.paragraph][prevWord.sentence][
+    prevWord.word
+  ] as string;
+
+  const wordBefore = getPreviousWordPosition(document, prevWord, true);
+  const wordBeforeStr =
+    wordBefore &&
+    document[wordBefore.paragraph][wordBefore.sentence][wordBefore.word];
+
+  if (
+    searchFunction(
+      { word: prevWordStr, position: prevWord },
+      wordBefore
+        ? { word: wordBeforeStr as string, position: wordBefore }
+        : null,
+    )
+  ) {
+    return prevWord;
+  }
+
+  return findPreviousWordPositionRecurssively(
+    document,
+    prevWord,
+    searchFunction,
+  );
+}
+
+export function getPrevParagraphPosition(
+  document: Document,
+  pos: WordPosition,
+  precision?: Precision,
+): WordPosition | SentencePosition | ParagraphPosition | null {
+  if (pos.paragraph === 0) return null;
+  precision = precision || getPrecision(pos);
+
+  switch (precision) {
+    case Precision.WORD:
+      return {
+        paragraph: pos.paragraph - 1,
+        sentence: document[pos.paragraph - 1].length - 1,
+        word:
+          document[pos.paragraph - 1][document[pos.paragraph - 1].length - 1]
+            .length - 1,
+      } as WordPosition;
+    case Precision.SENTENCE:
+      return {
+        paragraph: pos.paragraph - 1,
+        sentence: document[pos.paragraph - 1].length - 1,
+      } as SentencePosition;
+    case Precision.PARAGRAPH:
+      return {
+        paragraph: pos.paragraph - 1,
+      } as ParagraphPosition;
+  }
+  return null;
+}
+
+export function getPreviousWordPosition(
+  document: Document,
+  pos: WordPosition,
+  ignoreEmpty = true,
+): WordPosition | null {
+  const currSentence = document[pos.paragraph][pos.sentence];
+  if (pos.word === 0 && pos.sentence === 0 && pos.paragraph === 0) {
+    return null;
+  }
+
+  // if word is first word of paragraph, jump to previous paragraph
+  if (pos.word === 0 && pos.sentence === 0) {
+    const prevParagraphPos = getPrevParagraphPosition(document, pos);
+    if (prevParagraphPos === null) {
+      return null;
+    }
+
+    // check if prev paragraph is empty
+    const prevParagraph = document[prevParagraphPos.paragraph];
+    if (prevParagraph.length === 1 && !prevParagraph[0][0]) {
+      return getPreviousWordPosition(document, {
+        paragraph: prevParagraphPos.paragraph,
+        sentence: 0,
+        word: 0,
+      });
+    }
+
+    return {
+      paragraph: prevParagraphPos.paragraph,
+      sentence: document[prevParagraphPos.paragraph].length - 1,
+      word:
+        document[prevParagraphPos.paragraph][
+          document[prevParagraphPos.paragraph].length - 1
+        ].length - 1,
+    } as WordPosition;
+  }
+
+  // if prev word is first word of sentence, jump to previous sentence
+  if (pos.word === 0) {
+    const prevSentence = getPrevSentencePosition(document, pos);
+    if (prevSentence === null) {
+      return null;
+    }
+
+    return {
+      paragraph: prevSentence.paragraph,
+      sentence: prevSentence.sentence,
+      word: document[prevSentence.paragraph][prevSentence.sentence].length - 1,
+    };
+  }
+
+  const prevWord = currSentence[pos.word - 1];
+
+  if (ignoreEmpty && !prevWord) {
+    return getPreviousWordPosition(document, {
+      paragraph: pos.paragraph,
+      sentence: pos.sentence,
+      word: pos.word - 1,
+    });
+  }
+
+  return {
+    paragraph: pos.paragraph,
+    sentence: pos.sentence,
+    word: pos.word - 1,
+  };
+}
+
+export function getNextWordPosition(
+  document: Document,
+  pos: WordPosition,
+  ignoreEmpty = true,
+): WordPosition | null {
+  const currSentence = document[pos.paragraph][pos.sentence];
+
+  if (
+    pos.paragraph === document.length - 1 &&
+    pos.sentence === document[pos.paragraph].length - 1 &&
+    pos.word === currSentence.length - 1
+  ) {
+    return null;
+  }
+
+  // if next word is last word of paragraph, jump to next paragraph
+  if (
+    pos.word === currSentence.length - 1 &&
+    pos.sentence === document[pos.paragraph].length - 1
+  ) {
+    const nextParagraphPos = getNextParagraphPosition(document, pos);
+    if (nextParagraphPos === null) {
+      return null;
+    }
+
+    // check if next paragraph is empty
+    const nextParagraph = document[nextParagraphPos.paragraph];
+    if (nextParagraph.length === 1 && !nextParagraph[0][0]) {
+      return getNextWordPosition(document, {
+        paragraph: nextParagraphPos.paragraph,
+        sentence: 0,
+        word: 0,
+      });
+    }
+
+    return {
+      paragraph: nextParagraphPos.paragraph,
+      sentence: 0,
+      word: 0,
+    } as WordPosition;
+  }
+
+  // if next word is last word of sentence, jump to next sentence
+  if (pos.word === currSentence.length - 1) {
+    const nextSentence = getNextSentencePosition(document, pos, true);
+    if (nextSentence === null) {
+      return null;
+    }
+
+    return {
+      paragraph: nextSentence.paragraph,
+      sentence: nextSentence.sentence,
+      word: 0,
+    };
+  }
+
+  const nextWord = currSentence[pos.word + 1];
+
+  if (ignoreEmpty && !nextWord) {
+    return getNextWordPosition(document, {
+      paragraph: pos.paragraph,
+      sentence: pos.sentence,
+      word: pos.word + 1,
+    });
+  }
+
+  return {
+    paragraph: pos.paragraph,
+    sentence: pos.sentence,
+    word: pos.word + 1,
+  };
+}
+
+function getNextPunctuationPosition(document: Document, pos: WordPosition) {
+  return findNextWordPositionRecursively(document, pos, (current) => {
+    // the very last word
+    if (
+      current.position.paragraph === document.length - 1 &&
+      current.position.sentence === document[document.length - 1].length - 1 &&
+      current.position.word ===
+        document[document.length - 1][document[document.length - 1].length - 1]
+          .length -
+          1
+    ) {
+      return true;
+    }
+
+    const isPunctuation = PUNTUATION_REGEX.test(current.word);
+    if (isPunctuation) {
+      return true;
+    }
+
+    if (isLastWordInSentence(document, current.position)) {
+      return true;
+    }
+
+    return false;
+  }) as WordPosition;
+}
+
+function findNextWordPositionRecursively(
+  document: Document,
+  pos: WordPosition,
+  searchFunction: (
+    current: { word: string; position: WordPosition },
+    wordAfter: { word: string; position: WordPosition } | null,
+  ) => boolean,
+) {
+  const nextWord = getNextWordPosition(document, pos, true);
+
+  if (nextWord === null) return null;
+  const nextWordStr = document[nextWord.paragraph][nextWord.sentence][
+    nextWord.word
+  ] as string;
+
+  const wordAfter = getNextWordPosition(document, nextWord, true);
+  const wordAfterStr =
+    wordAfter &&
+    document[wordAfter.paragraph][wordAfter.sentence][wordAfter.word];
+
+  if (
+    searchFunction(
+      { word: nextWordStr, position: nextWord },
+      wordAfter ? { word: wordAfterStr as string, position: wordAfter } : null,
+    )
+  ) {
+    return nextWord;
+  }
+
+  return findNextWordPositionRecursively(document, nextWord, searchFunction);
+}
+
+export function getNextParagraphPosition(
+  document: Document,
+  pos: WordPosition,
+  precision?: Precision,
+): WordPosition | SentencePosition | ParagraphPosition | null {
+  if (pos.paragraph === document.length - 1) return null;
+  precision = precision || getPrecision(pos);
+
+  switch (precision) {
+    case Precision.WORD:
+      return {
+        paragraph: pos.paragraph + 1,
+        sentence: 0,
+        word: 0,
+      } as WordPosition;
+    case Precision.SENTENCE:
+      return {
+        paragraph: pos.paragraph + 1,
+        sentence: 0,
+      } as SentencePosition;
+    case Precision.PARAGRAPH:
+      return {
+        paragraph: pos.paragraph + 1,
+      } as ParagraphPosition;
+  }
+  return null;
+}
+
+function getNextSentencePosition(
+  document: Document,
+  pos: WordPosition,
+  ignoreEmpty: boolean = true,
+): SentencePosition | null {
+  if (
+    pos.paragraph === document.length - 1 &&
+    pos.sentence === document[pos.paragraph].length - 1
+  ) {
+    return null;
+  }
+
+  const lastSentenceInParagraph = document[pos.paragraph].length - 1;
+
+  const nextSentenceParagraph =
+    pos.sentence === lastSentenceInParagraph
+      ? pos.paragraph + 1
+      : pos.paragraph;
+
+  const nextSentenceInParagraph =
+    pos.sentence === lastSentenceInParagraph ? 0 : pos.sentence + 1;
+
+  const nextSentencePos = {
+    paragraph: nextSentenceParagraph,
+    sentence: nextSentenceInParagraph,
+  };
+
+  // check if next sentence is empty
+  const nextSentence =
+    document[nextSentencePos.paragraph][nextSentencePos.sentence];
+  if (ignoreEmpty && !nextSentence[0]) {
+    return getNextSentencePosition(document, {
+      paragraph: nextSentencePos.paragraph,
+      sentence: nextSentencePos.sentence,
+      word: 0,
+    });
+  }
+
+  return nextSentencePos;
+}
+
 export function CursorStateProvider({ children }: Props) {
   const [position, setPosition] = useState<BlockPosition>(WORD_ZERO);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -779,6 +1213,7 @@ export function CursorStateProvider({ children }: Props) {
 
   const selectFrom = useCallback((position: BlockPosition) => {
     setIsSelecting(true);
+    setSelectionLevel(getPrecision(position));
     setSelectionRange({
       from: position,
       to: null,
@@ -855,8 +1290,6 @@ export function CursorStateProvider({ children }: Props) {
     }
   });
 
-  useEventListener("keydown", (e) => {});
-
   // ==============================================
   // FEATURE: move selection
   // ==============================================
@@ -900,7 +1333,7 @@ export function CursorStateProvider({ children }: Props) {
           from: convertToWordPosition(document, prevPosition, "start"),
         } as SelectionRange;
       }
-      return moveSelection(document, prev, -1, true) || prev;
+      return moveSelection(document, prev, -1, false) || prev;
     });
   });
 
@@ -916,9 +1349,41 @@ export function CursorStateProvider({ children }: Props) {
           from: convertToWordPosition(document, prevPosition, "end"),
         } as SelectionRange;
       }
-      return moveSelection(document, prev, 1, true) || prev;
+      return moveSelection(document, prev, 1, false) || prev;
     });
   });
+
+  // ==============================================
+  // FEATURE: jump word between puntuation when option Arrow
+  // ==============================================
+  useHotkeys("alt+ArrowLeft", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+
+      const pos = convertToWordPosition(
+        document,
+        prev.to || prev.from,
+        "start",
+      );
+      const lastPunctuationPos = getPrevPunctuationPosition(document, pos);
+      return createSelection(lastPunctuationPos, undefined, Precision.WORD);
+    });
+  });
+
+  useHotkeys("alt+ArrowRight", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+
+      const pos = convertToWordPosition(
+        document,
+        prev.to || prev.from,
+        "start",
+      );
+      const nextPunctuationPos = getNextPunctuationPosition(document, pos);
+      return createSelection(nextPunctuationPos, undefined, Precision.WORD);
+    });
+  });
+
   // ==============================================
   // FEATURE: move selection preserving range
   // ==============================================
@@ -942,13 +1407,52 @@ export function CursorStateProvider({ children }: Props) {
   useHotkeys("shift+ArrowUp", () => {
     setSelectionRange((prev) => {
       if (prev === null) return prev;
-      return expandSelection(document, prev, -1) || prev;
+
+      const newSelection = createSelection(
+        prev.from,
+        prev.to,
+        Precision.SENTENCE,
+      );
+      if (getPrecision(prev.from) !== Precision.SENTENCE) {
+        return newSelection;
+      }
+      return expandSelection(document, newSelection, -1) || prev;
     });
   });
   useHotkeys("shift+ArrowDown", () => {
     setSelectionRange((prev) => {
       if (prev === null) return prev;
-      return expandSelection(document, prev, 1) || prev;
+      const newSelection = createSelection(
+        prev.from,
+        prev.to,
+        Precision.SENTENCE,
+      );
+      if (getPrecision(prev.from) !== Precision.SENTENCE) {
+        return newSelection;
+      }
+      return expandSelection(document, newSelection, 1) || prev;
+    });
+  });
+
+  useHotkeys("shift+ArrowLeft", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      const newSelection = createSelection(prev.from, prev.to, Precision.WORD);
+      if (getPrecision(prev.from) !== Precision.WORD) {
+        return newSelection;
+      }
+      return expandSelection(document, newSelection, -1) || prev;
+    });
+  });
+
+  useHotkeys("shift+ArrowRight", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      const newSelection = createSelection(prev.from, prev.to, Precision.WORD);
+      if (getPrecision(prev.from) !== Precision.WORD) {
+        return newSelection;
+      }
+      return expandSelection(document, newSelection, 1) || prev;
     });
   });
 
@@ -1011,6 +1515,48 @@ export function CursorStateProvider({ children }: Props) {
       return {
         from: prev.from,
         to: nextParagraphLastSentence,
+      };
+    });
+  });
+
+  useHotkeys("alt+shift+ArrowLeft", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      const newSelection = createSelection(
+        prev.from,
+        prev.to || prev.from,
+        Precision.WORD,
+      );
+      if (getPrecision(prev.from) !== Precision.WORD) {
+        return newSelection;
+      }
+      return {
+        from: prev.from,
+        to: getPrevPunctuationPosition(
+          document,
+          newSelection.to as WordPosition,
+        ),
+      };
+    });
+  });
+
+  useHotkeys("alt+shift+ArrowRight", () => {
+    setSelectionRange((prev) => {
+      if (prev === null) return prev;
+      const newSelection = createSelection(
+        prev.from,
+        prev.to || prev.from,
+        Precision.WORD,
+      );
+      if (getPrecision(prev.from) !== Precision.WORD) {
+        return newSelection;
+      }
+      return {
+        from: prev.from,
+        to: getNextPunctuationPosition(
+          document,
+          newSelection.to as WordPosition,
+        ),
       };
     });
   });

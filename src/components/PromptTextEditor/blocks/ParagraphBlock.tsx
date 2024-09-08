@@ -3,6 +3,7 @@ import {
   createSelection,
   getPrecision,
   ParagraphPosition,
+  Precision,
   SentencePosition,
   useCursorState,
 } from "../CursorStateProvider";
@@ -38,7 +39,7 @@ export const ParagraphBlock = ({ content, position }: ParagraphBlockProps) => {
         sentence: lastSentence,
         word: lastWord,
       },
-      selectionLevel,
+      Precision.WORD,
     );
     selectFrom(lastPositionInParagraph);
   };
