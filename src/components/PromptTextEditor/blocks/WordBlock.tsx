@@ -27,8 +27,14 @@ export const WordBlock = ({
 }: WordBlockProp) => {
   const { document, updateWord, getWord } = useDocument();
   const { registerWordInfo } = useWordPositionInfoRegistry();
-  const { selectionLevel, selectFrom, selectTo, selectionRange, isSelecting } =
-    useCursorState();
+  const {
+    inputMode,
+    selectionLevel,
+    selectFrom,
+    selectTo,
+    selectionRange,
+    isSelecting,
+  } = useCursorState();
 
   const isSelectionModeSentence = selectionLevel === Precision.SENTENCE;
   const canSelectWord = selectionLevel === Precision.WORD;
@@ -37,8 +43,9 @@ export const WordBlock = ({
   const [isSelected, setIsSelected] = useState(false);
 
   const selectionColorStyle =
-    (canSelectWord && isHovering) ||
-    (isSelectionModeSentence && isHoveringParentSentence)
+    inputMode === "mouse" &&
+    ((canSelectWord && isHovering) ||
+      (isSelectionModeSentence && isHoveringParentSentence))
       ? "bg-zinc-700"
       : isSelected
       ? "bg-zinc-700"

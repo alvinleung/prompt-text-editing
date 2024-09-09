@@ -84,6 +84,10 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     if (!isSentenceSelectionMode) return;
     selectFrom(position);
   };
+  const handleDoubleClick = () => {
+    selectFrom(position);
+    stopSelecting();
+  };
 
   return (
     <span
@@ -91,6 +95,7 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onMouseDown={handleMouseDown}
+      onDoubleClick={handleDoubleClick}
     >
       {/* {isCommented && (
         <span

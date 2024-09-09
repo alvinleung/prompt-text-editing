@@ -1729,7 +1729,19 @@ export function CursorStateProvider({ children }: Props) {
   // selection range changed
   useEventListener("click", () => {
     if (hasSelectionRangeChanged) return;
+    setSelectionLevel(Precision.WORD);
     clearSelection();
+  });
+
+  useEffect(() => {
+    if (inputMode === "keyboard") {
+      window.document.body.style.cursor = "none"; // Fixed assignment operator
+    } else {
+      window.document.body.style.cursor = ""; // Fixed assignment operator
+    }
+  }, [inputMode]);
+  useEventListener("mousemove", () => {
+    setInputMode("mouse");
   });
 
   return (
