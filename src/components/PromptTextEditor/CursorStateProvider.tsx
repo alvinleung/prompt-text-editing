@@ -1,5 +1,5 @@
-import { useEventListener, useeventlistener } from "usehooks-ts";
-import { Document, Paragraph, Sentence, useDocument } from "./DocumentProvider";
+import { useEventListener } from "usehooks-ts";
+import { Document, Paragraph, useDocument } from "./DocumentProvider";
 import {
   createContext,
   useCallback,
@@ -142,8 +142,8 @@ export function createPosition(position: BlockPosition, precision?: Precision) {
 
   const paragraph = position.paragraph;
   const sentence = (position as SentencePosition).sentence || 0;
-  const word = (position as WordPosition).word;
-  const character = (position as CharacterPosition).character;
+  const word = (position as WordPosition).word || 0;
+  const character = (position as CharacterPosition).character || 0;
 
   switch (precision) {
     case Precision.CHARACTER:
@@ -1187,7 +1187,90 @@ function getNextSentencePosition(
 
   return nextSentencePos;
 }
+function getSelectionPrecision({ from, to }: SelectionRange): Precision {
+  const fromPrecision = getPrecision(from);
+  const toPrecision = getPrecision(to || from);
 
+  // If precision is different, return the lowest precision
+  if (
+    fromPrecision === Precision.PARAGRAPH ||
+    toPrecision === Precision.PARAGRAPH
+  ) {
+    return Precision.PARAGRAPH; // Return PARAGRAPH if either is PARAGRAPH
+  } else if (
+    fromPrecision === Precision.SENTENCE ||
+    toPrecision === Precision.SENTENCE
+  ) {
+    return Precision.SENTENCE; // Return SENTENCE if either is SENTENCE
+  } else if (
+    fromPrecision === Precision.WORD ||
+    toPrecision === Precision.WORD
+  ) {
+    return Precision.WORD; // Return WORD if either is WORD
+  } else {
+    return Precision.CHARACTER; // Default to CHARACTER if none match
+  }
+}
+function getSelectionBoundSorted({ from, to }: SelectionRange): {
+  lowerBound: WordPosition;
+  upperBound: WordPosition;
+} {
+  const fromPos = from as WordPosition;
+  const toPos = to as WordPosition;
+
+  const lowerBound =
+    fromPos.paragraph < toPos.paragraph ||
+    (fromPos.paragraph === toPos.paragraph &&
+      fromPos.sentence < toPos.sentence) ||
+    (fromPos.paragraph === toPos.paragraph &&
+      fromPos.sentence === toPos.sentence &&
+      fromPos.word < toPos.word)
+      ? fromPos
+      : toPos;
+  const upperBound =
+    fromPos.paragraph > toPos.paragraph ||
+    (fromPos.paragraph === toPos.paragraph &&
+      fromPos.sentence > toPos.sentence) ||
+    (fromPos.paragraph === toPos.paragraph &&
+      fromPos.sentence === toPos.sentence &&
+      fromPos.word > toPos.word)
+      ? fromPos
+      : toPos;
+
+  return { lowerBound, upperBound };
+}
+
+function isSelectingFullSentence(document: Document, range: SelectionRange) {
+  console.log(range.to);
+  if (!range.to || (range.from as WordPosition).word === undefined) {
+    return false;
+  }
+  const { lowerBound, upperBound } = getSelectionBoundSorted(range);
+
+  return (
+    lowerBound.word === 0 &&
+    upperBound.word ===
+      document[upperBound.paragraph][upperBound.sentence].length - 1
+  );
+}
+
+function convertSelectionPrecision(
+  range: SelectionRange,
+  precision: Precision
+) {
+  const { from, to } = range;
+
+  // Convert 'from' position to the desired precision
+  const newFrom = createPosition(from, precision);
+
+  // Convert 'to' position to the desired precision if it exists
+  const newTo = to ? createPosition(to, precision) : null;
+
+  return {
+    from: newFrom,
+    to: newTo,
+  } as SelectionRange;
+}
 export function CursorStateProvider({ children }: Props) {
   const [position, setPosition] = useState<BlockPosition>(WORD_ZERO);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -1307,7 +1390,17 @@ export function CursorStateProvider({ children }: Props) {
         };
       }
 
-      if (getPrecision(prev.to || prev.from) === Precision.WORD) {
+      if (getSelectionPrecision(prev) === Precision.WORD) {
+        if (isSelectingFullSentence(document, prev)) {
+          return (
+            moveSelectionBySentence(
+              document,
+              convertSelectionPrecision(prev, Precision.SENTENCE),
+              -1,
+              false
+            ) || prev
+          );
+        }
         const currentWordPosition = (prev.to || prev.from) as WordPosition;
         const visualPosition = getWordVisualPositionInfo(currentWordPosition);
         if (!visualPosition) return prev;
@@ -1330,7 +1423,19 @@ export function CursorStateProvider({ children }: Props) {
           to: convertToSentencePosition(document, position),
         };
       }
-      if (getPrecision(prev.to || prev.from) === Precision.WORD) {
+
+      if (getSelectionPrecision(prev) === Precision.WORD) {
+        if (isSelectingFullSentence(document, prev)) {
+          return (
+            moveSelectionBySentence(
+              document,
+              convertSelectionPrecision(prev, Precision.SENTENCE),
+              1,
+              false
+            ) || prev
+          );
+        }
+
         const currentWordPosition = (prev.to || prev.from) as WordPosition;
         const visualPosition = getWordVisualPositionInfo(currentWordPosition);
         if (!visualPosition) return prev;
