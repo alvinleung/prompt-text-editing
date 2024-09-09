@@ -25,7 +25,7 @@ export const WordBlock = ({
   spaceAfter,
   isHoveringParentSentence,
 }: WordBlockProp) => {
-  const { document, updateWord, getWord } = useDocument();
+  const { document } = useDocument();
   const { registerWordInfo } = useWordPositionInfoRegistry();
   const {
     inputMode,
@@ -48,8 +48,8 @@ export const WordBlock = ({
       (isSelectionModeSentence && isHoveringParentSentence))
       ? "bg-zinc-700"
       : isSelected
-      ? "bg-zinc-700"
-      : "";
+        ? "bg-zinc-700"
+        : "";
 
   const handleSelect = () => {
     if (!canSelectWord) return;
@@ -103,7 +103,7 @@ export const WordBlock = ({
     return () => {
       window.removeEventListener("resize", measureElm);
     };
-  }, []);
+  }, [document]);
 
   //TODO: jank because not reliable — for PROTOTYPE PURPOSE ONLY
   const wordLine_jank = useMemo(() => {

@@ -135,7 +135,7 @@ type Props = {
 export const useCursorState = () => useContext(CursorStateContext);
 export function distToParagraph(
   pos1: ParagraphPosition,
-  pos2: ParagraphPosition
+  pos2: ParagraphPosition,
 ) {
   const paragraphDistance = pos1.paragraph - pos2.paragraph;
   return {
@@ -179,7 +179,7 @@ export function createPosition(position: BlockPosition, precision?: Precision) {
 export function createSelection(
   from: BlockPosition | null,
   to?: BlockPosition | null,
-  precision?: Precision
+  precision?: Precision,
 ): SelectionRange {
   if (!from) {
     return {
@@ -220,7 +220,7 @@ function isSentencePosition(from: BlockPosition): from is SentencePosition {
 export function convertToWordPosition(
   doc: Document,
   from: BlockPosition,
-  roundingDirection: "start" | "end" = "start"
+  roundingDirection: "start" | "end" = "start",
 ): WordPosition {
   // make sure the it is word position
   if ((from as WordPosition).word) return from as WordPosition;
@@ -239,7 +239,7 @@ export function convertToWordPosition(
 export function convertToSentencePosition(
   doc: Document,
   from: BlockPosition,
-  roundingDirection: "start" | "end" = "start"
+  roundingDirection: "start" | "end" = "start",
 ): SentencePosition {
   return {
     paragraph: from.paragraph,
@@ -318,7 +318,7 @@ interface PrecisionDependentHandler<T> {
 }
 export function forPrecision<T>(
   posArr: BlockPosition[],
-  handler: PrecisionDependentHandler<T>
+  handler: PrecisionDependentHandler<T>,
 ): T | undefined {
   const { precision, result } = matchPrecision(posArr);
   switch (precision) {
@@ -352,12 +352,12 @@ export function isEqualPosition(a: BlockPosition, b: BlockPosition) {
 export function isInsideSelectionRange(
   doc: Document,
   target: BlockPosition,
-  range: SelectionRange
+  range: SelectionRange,
 ): boolean | undefined {
   const isWithinParagraph = (
     from: ParagraphPosition,
     to: ParagraphPosition,
-    target: ParagraphPosition
+    target: ParagraphPosition,
   ) => {
     const upperboundParagraph = Math.max(from.paragraph, to.paragraph);
     const lowerboundParagraph = Math.min(from.paragraph, to.paragraph);
@@ -372,7 +372,7 @@ export function isInsideSelectionRange(
     from: SentencePosition,
     to: SentencePosition,
     target: SentencePosition,
-    inclusive: boolean = true
+    inclusive: boolean = true,
   ) => {
     // outside the range, exit early
     if (!isWithinParagraph(from, to, target)) {
@@ -401,7 +401,7 @@ export function isInsideSelectionRange(
     doc: Document,
     from: WordPosition,
     to: WordPosition,
-    target: WordPosition
+    target: WordPosition,
   ) => {
     const fromWordAbs = getWordPositionAbs(doc, from);
     const toWordAbs = getWordPositionAbs(doc, to);
@@ -432,7 +432,7 @@ export function isInsideSelectionRange(
       paragraph: function ([from, to, target]): boolean {
         return isWithinParagraph(from, to, target);
       },
-    }
+    },
   );
 }
 
@@ -440,7 +440,7 @@ function moveSentencePosition(
   doc: Document,
   position: SentencePosition,
   steps: number = 1,
-  ignoreEmptyParagraph: boolean = true
+  ignoreEmptyParagraph: boolean = true,
 ): SentencePosition {
   const current = {
     paragraph: position.paragraph,
@@ -507,7 +507,7 @@ function moveWordPosition(
   doc: Document,
   position: WordPosition,
   steps: number = 1,
-  ignoreEmptyParagraph: boolean = true
+  ignoreEmptyParagraph: boolean = true,
 ): WordPosition {
   const current = { ...position };
 
@@ -597,7 +597,7 @@ function moveSelection(
   range: SelectionRange,
   offset: number,
   preserveRange = true,
-  ignoreEmptyParagraph: boolean = true
+  ignoreEmptyParagraph: boolean = true,
 ): SelectionRange | undefined {
   return forPrecision([range.from, range.to || clonePosition(range.from)], {
     sentence: ([from, to]) => {
@@ -605,7 +605,7 @@ function moveSelection(
         doc,
         from,
         offset,
-        ignoreEmptyParagraph
+        ignoreEmptyParagraph,
       );
       const newTo = moveSentencePosition(doc, to, offset, ignoreEmptyParagraph);
 
@@ -644,7 +644,7 @@ function moveSelectionBySentence(
   range: SelectionRange,
   offset: number,
   preserveRange: boolean = true,
-  ignoreEmptyParagraph: boolean = true
+  ignoreEmptyParagraph: boolean = true,
 ): SelectionRange {
   // if it were word position, strip the word position and
   // turn it into sentence position
@@ -663,13 +663,13 @@ function moveSelectionBySentence(
     doc,
     range.from as SentencePosition,
     offset,
-    ignoreEmptyParagraph
+    ignoreEmptyParagraph,
   );
   const newTo = moveSentencePosition(
     doc,
     (range.to || clonePosition(range.from)) as SentencePosition,
     offset,
-    ignoreEmptyParagraph
+    ignoreEmptyParagraph,
   );
 
   return {
@@ -681,7 +681,7 @@ function moveSelectionBySentence(
 function expandSelection(
   doc: Document,
   range: SelectionRange,
-  offset: number
+  offset: number,
 ): SelectionRange {
   return forPrecision([range.from, range.to || clonePosition(range.from)], {
     sentence: ([from, to]) => {
@@ -717,7 +717,7 @@ export function getParagraphlastSentence(paragraph: Paragraph) {
 function getNextParagraphLastSentence(
   doc: Document,
   pos: SentencePosition,
-  ignoreEmptyParagraph: boolean = true
+  ignoreEmptyParagraph: boolean = true,
 ) {
   if (pos.sentence !== doc[pos.paragraph].length - 1) {
     return {
@@ -742,7 +742,7 @@ function getNextParagraphLastSentence(
           paragraph: pos.paragraph + 1,
           sentence: 0,
         },
-        ignoreEmptyParagraph
+        ignoreEmptyParagraph,
       );
     }
     return null;
@@ -757,7 +757,7 @@ function getNextParagraphLastSentence(
 function getPrevParagraphFirstSentence(
   doc: Document,
   pos: SentencePosition,
-  ignoreEmptyParagraph: boolean = true
+  ignoreEmptyParagraph: boolean = true,
 ) {
   if (pos.sentence !== 0) {
     return {
@@ -780,7 +780,7 @@ function getPrevParagraphFirstSentence(
         paragraph: pos.paragraph - 1,
         sentence: 0,
       },
-      ignoreEmptyParagraph
+      ignoreEmptyParagraph,
     );
   }
 
@@ -793,7 +793,7 @@ function getPrevParagraphFirstSentence(
 function getPrevSentencePosition(
   document: Document,
   pos: WordPosition,
-  ignoreEmpty: boolean = true
+  ignoreEmpty: boolean = true,
 ): SentencePosition | null {
   if (pos.paragraph === 0 && pos.sentence === 0) {
     return null;
@@ -856,7 +856,7 @@ function getPrevPunctuationPosition(document: Document, pos: WordPosition) {
         return true;
       }
       return false;
-    }
+    },
   ) as WordPosition;
 }
 
@@ -865,8 +865,8 @@ export function findPreviousWordPositionRecurssively(
   pos: WordPosition,
   searchFunction: (
     current: { word: string; position: WordPosition },
-    wordBefore: { word: string; position: WordPosition } | null
-  ) => boolean
+    wordBefore: { word: string; position: WordPosition } | null,
+  ) => boolean,
 ) {
   const prevWord = getPreviousWordPosition(document, pos, true);
   if (prevWord === null) return null;
@@ -884,7 +884,7 @@ export function findPreviousWordPositionRecurssively(
       { word: prevWordStr, position: prevWord },
       wordBefore
         ? { word: wordBeforeStr as string, position: wordBefore }
-        : null
+        : null,
     )
   ) {
     return prevWord;
@@ -893,14 +893,14 @@ export function findPreviousWordPositionRecurssively(
   return findPreviousWordPositionRecurssively(
     document,
     prevWord,
-    searchFunction
+    searchFunction,
   );
 }
 
 export function getPrevParagraphPosition(
   document: Document,
   pos: WordPosition,
-  precision?: Precision
+  precision?: Precision,
 ): WordPosition | SentencePosition | ParagraphPosition | null {
   if (pos.paragraph === 0) return null;
   precision = precision || getPrecision(pos);
@@ -930,7 +930,7 @@ export function getPrevParagraphPosition(
 export function getPreviousWordPosition(
   document: Document,
   pos: WordPosition,
-  ignoreEmpty = true
+  ignoreEmpty = true,
 ): WordPosition | null {
   const currSentence = document[pos.paragraph][pos.sentence];
   if (pos.word === 0 && pos.sentence === 0 && pos.paragraph === 0) {
@@ -998,7 +998,7 @@ export function getPreviousWordPosition(
 export function getNextWordPosition(
   document: Document,
   pos: WordPosition,
-  ignoreEmpty = true
+  ignoreEmpty = true,
 ): WordPosition | null {
   const currSentence = document[pos.paragraph][pos.sentence];
 
@@ -1100,8 +1100,8 @@ function findNextWordPositionRecursively(
   pos: WordPosition,
   searchFunction: (
     current: { word: string; position: WordPosition },
-    wordAfter: { word: string; position: WordPosition } | null
-  ) => boolean
+    wordAfter: { word: string; position: WordPosition } | null,
+  ) => boolean,
 ) {
   const nextWord = getNextWordPosition(document, pos, true);
 
@@ -1118,7 +1118,7 @@ function findNextWordPositionRecursively(
   if (
     searchFunction(
       { word: nextWordStr, position: nextWord },
-      wordAfter ? { word: wordAfterStr as string, position: wordAfter } : null
+      wordAfter ? { word: wordAfterStr as string, position: wordAfter } : null,
     )
   ) {
     return nextWord;
@@ -1130,7 +1130,7 @@ function findNextWordPositionRecursively(
 export function getNextParagraphPosition(
   document: Document,
   pos: WordPosition,
-  precision?: Precision
+  precision?: Precision,
 ): WordPosition | SentencePosition | ParagraphPosition | null {
   if (pos.paragraph === document.length - 1) return null;
   precision = precision || getPrecision(pos);
@@ -1158,7 +1158,7 @@ export function getNextParagraphPosition(
 function getNextSentencePosition(
   document: Document,
   pos: WordPosition,
-  ignoreEmpty: boolean = true
+  ignoreEmpty: boolean = true,
 ): SentencePosition | null {
   if (
     pos.paragraph === document.length - 1 &&
@@ -1271,7 +1271,7 @@ function isSelectingFullSentence(document: Document, range: SelectionRange) {
 
 export function convertSelectionPrecision(
   range: SelectionRange,
-  precision: Precision
+  precision: Precision,
 ) {
   const { from, to } = range;
 
@@ -1290,7 +1290,7 @@ export function CursorStateProvider({ children }: Props) {
   const [position, setPosition] = useState<BlockPosition>(WORD_ZERO);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionRange, setSelectionRange] = useState<SelectionRange | null>(
-    null
+    null,
   );
   const [inputMode, setInputMode] = useState<"keyboard" | "mouse">("mouse");
 
@@ -1365,7 +1365,7 @@ export function CursorStateProvider({ children }: Props) {
       setInputMode("keyboard");
     },
     undefined,
-    { capture: false }
+    { capture: false },
   );
   useEventListener(
     "mousedown",
@@ -1373,7 +1373,7 @@ export function CursorStateProvider({ children }: Props) {
       setInputMode("mouse");
     },
     undefined,
-    { capture: false }
+    { capture: false },
   );
 
   // ==============================================
@@ -1411,7 +1411,7 @@ export function CursorStateProvider({ children }: Props) {
               document,
               convertSelectionPrecision(prev, Precision.SENTENCE),
               -1,
-              false
+              false,
             ) || prev
           );
         }
@@ -1446,7 +1446,7 @@ export function CursorStateProvider({ children }: Props) {
               document,
               convertSelectionPrecision(prev, Precision.SENTENCE),
               1,
-              false
+              false,
             ) || prev
           );
         }
@@ -1508,7 +1508,7 @@ export function CursorStateProvider({ children }: Props) {
       const pos = convertToWordPosition(
         document,
         prev.to || clonePosition(prev.from),
-        "start"
+        "start",
       );
       const lastPunctuationPos = getPrevPunctuationPosition(document, pos);
       return createSelection(lastPunctuationPos, undefined, Precision.WORD);
@@ -1522,7 +1522,7 @@ export function CursorStateProvider({ children }: Props) {
       const pos = convertToWordPosition(
         document,
         prev.to || clonePosition(prev.from),
-        "start"
+        "start",
       );
       const nextPunctuationPos = getNextPunctuationPosition(document, pos);
       return createSelection(nextPunctuationPos, undefined, Precision.WORD);
@@ -1556,7 +1556,7 @@ export function CursorStateProvider({ children }: Props) {
       const newSelection = createSelection(
         prev.from,
         prev.to,
-        Precision.SENTENCE
+        Precision.SENTENCE,
       );
       if (getPrecision(prev.from) !== Precision.SENTENCE) {
         return newSelection;
@@ -1570,7 +1570,7 @@ export function CursorStateProvider({ children }: Props) {
       const newSelection = createSelection(
         prev.from,
         prev.to,
-        Precision.SENTENCE
+        Precision.SENTENCE,
       );
       if (getPrecision(prev.from) !== Precision.SENTENCE) {
         return newSelection;
@@ -1609,7 +1609,7 @@ export function CursorStateProvider({ children }: Props) {
       if (prev === null) return prev;
       const nextParagraphLastSentence = getNextParagraphLastSentence(
         document,
-        prev.from as SentencePosition
+        prev.from as SentencePosition,
       );
       if (nextParagraphLastSentence === null) return prev;
       return {
@@ -1623,7 +1623,7 @@ export function CursorStateProvider({ children }: Props) {
       if (prev === null) return prev;
       const prevParagraphFirstSentence = getPrevParagraphFirstSentence(
         document,
-        prev.from as SentencePosition
+        prev.from as SentencePosition,
       );
       if (prevParagraphFirstSentence === null) return prev;
       return {
@@ -1641,7 +1641,7 @@ export function CursorStateProvider({ children }: Props) {
       if (prev === null) return prev;
       const prevParagraphFirstSentence = getPrevParagraphFirstSentence(
         document,
-        (prev.to as SentencePosition) || (prev.from as SentencePosition)
+        (prev.to as SentencePosition) || (prev.from as SentencePosition),
       );
       return {
         from: prev.from,
@@ -1655,7 +1655,7 @@ export function CursorStateProvider({ children }: Props) {
       if (prev === null) return prev;
       const nextParagraphLastSentence = getNextParagraphLastSentence(
         document,
-        (prev.to as SentencePosition) || (prev.from as SentencePosition)
+        (prev.to as SentencePosition) || (prev.from as SentencePosition),
       );
       return {
         from: prev.from,
@@ -1670,7 +1670,7 @@ export function CursorStateProvider({ children }: Props) {
       const newSelection = createSelection(
         prev.from,
         prev.to || clonePosition(prev.from),
-        Precision.WORD
+        Precision.WORD,
       );
       if (getPrecision(prev.from) !== Precision.WORD) {
         return newSelection;
@@ -1679,7 +1679,7 @@ export function CursorStateProvider({ children }: Props) {
         from: prev.from,
         to: getPrevPunctuationPosition(
           document,
-          newSelection.to as WordPosition
+          newSelection.to as WordPosition,
         ),
       };
     });
@@ -1691,7 +1691,7 @@ export function CursorStateProvider({ children }: Props) {
       const newSelection = createSelection(
         prev.from,
         prev.to || clonePosition(prev.from),
-        Precision.WORD
+        Precision.WORD,
       );
       if (getPrecision(prev.from) !== Precision.WORD) {
         return newSelection;
@@ -1700,7 +1700,7 @@ export function CursorStateProvider({ children }: Props) {
         from: prev.from,
         to: getNextPunctuationPosition(
           document,
-          newSelection.to as WordPosition
+          newSelection.to as WordPosition,
         ),
       };
     });
@@ -1714,8 +1714,8 @@ export function CursorStateProvider({ children }: Props) {
     setPosition(
       convertToWordPosition(
         document,
-        selectionRange?.to || selectionRange?.from || WORD_ZERO
-      )
+        selectionRange?.to || selectionRange?.from || WORD_ZERO,
+      ),
     );
     stopSelecting();
     setSelectionLevel(Precision.WORD);
@@ -1739,7 +1739,7 @@ export function CursorStateProvider({ children }: Props) {
   useEventListener("keydown", (e) => {
     const modifierKeys = ["Alt", "Control", "Meta", "Shift", "AltGraph"];
     const isPressingModifier = modifierKeys.some((key) =>
-      e.getModifierState(key)
+      e.getModifierState(key),
     );
 
     if (isPressingModifier) return;
