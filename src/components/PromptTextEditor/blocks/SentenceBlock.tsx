@@ -24,6 +24,7 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     selectTo,
     selectionRange,
     isSelecting,
+    stopSelecting,
   } = useCursorState();
   const { document } = useDocument();
 
@@ -80,8 +81,14 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     isSelecting,
   ]);
 
-  const handleMouseDown = () => {
+  const handleMouseDown = (e: MouseEvent) => {
     if (!isSentenceSelectionMode) return;
+    // if (e.getModifierState("Shift")) {
+    //   if (selectionRange !== null) {
+    //     selectTo(position);
+    //   }
+    //   return;
+    // }
     selectFrom(position);
   };
   const handleDoubleClick = () => {
