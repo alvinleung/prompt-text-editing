@@ -94,7 +94,7 @@ export function DocumentProvider({ children }: React.PropsWithChildren<Props>) {
       prev[position.paragraph][position.sentence].splice(
         position.word,
         0,
-        word
+        word,
       );
       return prev;
     });
