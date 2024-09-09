@@ -1721,8 +1721,32 @@ export function CursorStateProvider({ children }: Props) {
     setSelectionLevel(Precision.WORD);
   });
 
+  // =============================================
+  // entering into edit mode
+  // =============================================
+
+  // just select text by default going into editor mode
   useHotkeys("enter", (e) => {
     e.preventDefault();
+    setEditorMode("edit");
+  });
+  // delete word by default when pressing backspace
+  useHotkeys("backspace", () => {
+    setEditorMode("edit");
+  });
+
+  // typing and replace when start typing in select mode
+  useEventListener("keydown", (e) => {
+    const modifierKeys = ["Alt", "Control", "Meta", "Shift", "AltGraph"];
+    const isPressingModifier = modifierKeys.some((key) =>
+      e.getModifierState(key)
+    );
+
+    if (isPressingModifier) return;
+    // go into edit mode for enter key
+    if (e.key.length !== 1) {
+      return;
+    }
     setEditorMode("edit");
   });
 
@@ -1732,6 +1756,7 @@ export function CursorStateProvider({ children }: Props) {
     setSelectionLevel(Precision.WORD);
     clearSelection();
   });
+  // =============================================
 
   useEffect(() => {
     if (inputMode === "keyboard") {
