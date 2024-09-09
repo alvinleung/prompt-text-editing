@@ -41,8 +41,8 @@ export const WordBlock = ({
     (isSelectionModeSentence && isHoveringParentSentence)
       ? "bg-zinc-700"
       : isSelected
-        ? "bg-zinc-700"
-        : "";
+      ? "bg-zinc-700"
+      : "";
 
   const handleSelect = () => {
     if (!canSelectWord) return;
@@ -115,6 +115,7 @@ export const WordBlock = ({
   }, [bounds, content, position, registerWordInfo, wordLine_jank]);
 
   const hasPeriod = content[content.length - 1] === ".";
+  const isContentEmpty = content === "";
 
   return (
     <React.Fragment>
@@ -128,6 +129,7 @@ export const WordBlock = ({
         onMouseLeave={() => setIsHovering(false)}
         className={`inline-block outline-none py-[4px] ${selectionColorStyle}`}
       >
+        {isContentEmpty && <>&nbsp;</>}
         {!hasPeriod && content}
         {hasPeriod && (
           <>
@@ -136,8 +138,8 @@ export const WordBlock = ({
           </>
         )}
       </span>
-      {spaceAfter && (
-        <span className={`${selectionColorStyle} py-[2.5px]`}>&nbsp;</span>
+      {!isContentEmpty && spaceAfter && (
+        <span className={`${selectionColorStyle} py-[2.5px]`}> </span>
       )}
     </React.Fragment>
   );

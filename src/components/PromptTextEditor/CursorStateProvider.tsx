@@ -1,5 +1,10 @@
 import { useEventListener } from "usehooks-ts";
-import { Document, Paragraph, useDocument } from "./DocumentProvider";
+import {
+  convertDocumentToString,
+  Document,
+  Paragraph,
+  useDocument,
+} from "./DocumentProvider";
 import {
   createContext,
   useCallback,
@@ -9,9 +14,10 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useWordPositionInfoRegistry } from "./WordPositionInfoProvder";
+import { useEditorMode } from "./EditorModeContext";
 
 // include all punctuations
-const PUNTUATION_REGEX = /[\s;:.,]/;
+const PUNTUATION_REGEX = /[\s;:.,"]/;
 
 // only peroid
 // const PUNTUATION_REGEX = /[\s.]/;
@@ -191,7 +197,7 @@ export function createSelection(
  *  Purpose of this is to decide between position or range
  */
 export function rangeToPosition(range: SelectionRange) {
-  return range.to || range.from;
+  return range.to || clonePosition(range.from);
 }
 
 function isWordPosition(from: BlockPosition): from is WordPosition {
@@ -400,7 +406,6 @@ export function isInsideSelectionRange(
     const fromWordAbs = getWordPositionAbs(doc, from);
     const toWordAbs = getWordPositionAbs(doc, to);
     const targetWordAbs = getWordPositionAbs(doc, target);
-    // console.log(fromWordAbs, toWordAbs, targetWordAbs);
 
     const upperboundWord = Math.max(fromWordAbs, toWordAbs);
     const lowerboundWord = Math.min(fromWordAbs, toWordAbs);
@@ -409,23 +414,26 @@ export function isInsideSelectionRange(
   };
 
   // check if paragraph within the selection range
-  return forPrecision([range.from, range.to || range.from, target], {
-    word: function ([from, to, target]) {
-      if (!isWithinParagraph(from, to, target)) {
-        return false;
-      }
-      return isWithinWord(doc, from, to, target);
-    },
-    sentence: ([from, to, target]) => {
-      if (!isWithinParagraph(from, to, target)) {
-        return false;
-      }
-      return isWithinSentence(doc, from, to, target);
-    },
-    paragraph: function ([from, to, target]): boolean {
-      return isWithinParagraph(from, to, target);
-    },
-  });
+  return forPrecision(
+    [range.from, range.to || clonePosition(range.from), target],
+    {
+      word: function ([from, to, target]) {
+        if (!isWithinParagraph(from, to, target)) {
+          return false;
+        }
+        return isWithinWord(doc, from, to, target);
+      },
+      sentence: ([from, to, target]) => {
+        if (!isWithinParagraph(from, to, target)) {
+          return false;
+        }
+        return isWithinSentence(doc, from, to, target);
+      },
+      paragraph: function ([from, to, target]): boolean {
+        return isWithinParagraph(from, to, target);
+      },
+    }
+  );
 }
 
 function moveSentencePosition(
@@ -591,7 +599,7 @@ function moveSelection(
   preserveRange = true,
   ignoreEmptyParagraph: boolean = true
 ): SelectionRange | undefined {
-  return forPrecision([range.from, range.to || range.from], {
+  return forPrecision([range.from, range.to || clonePosition(range.from)], {
     sentence: ([from, to]) => {
       const newFrom = moveSentencePosition(
         doc,
@@ -659,7 +667,7 @@ function moveSelectionBySentence(
   );
   const newTo = moveSentencePosition(
     doc,
-    (range.to || range.from) as SentencePosition,
+    (range.to || clonePosition(range.from)) as SentencePosition,
     offset,
     ignoreEmptyParagraph
   );
@@ -675,7 +683,7 @@ function expandSelection(
   range: SelectionRange,
   offset: number
 ): SelectionRange {
-  return forPrecision([range.from, range.to || range.from], {
+  return forPrecision([range.from, range.to || clonePosition(range.from)], {
     sentence: ([from, to]) => {
       return {
         from: from,
@@ -1187,9 +1195,17 @@ function getNextSentencePosition(
 
   return nextSentencePos;
 }
-function getSelectionPrecision({ from, to }: SelectionRange): Precision {
+export function clonePosition(position: BlockPosition) {
+  return {
+    paragraph: position.paragraph,
+    sentence: (position as SentencePosition).sentence,
+    word: (position as WordPosition).word,
+  };
+}
+
+export function getSelectionPrecision({ from, to }: SelectionRange): Precision {
   const fromPrecision = getPrecision(from);
-  const toPrecision = getPrecision(to || from);
+  const toPrecision = getPrecision(to || clonePosition(from));
 
   // If precision is different, return the lowest precision
   if (
@@ -1211,12 +1227,12 @@ function getSelectionPrecision({ from, to }: SelectionRange): Precision {
     return Precision.CHARACTER; // Default to CHARACTER if none match
   }
 }
-function getSelectionBoundSorted({ from, to }: SelectionRange): {
+export function getSelectionBoundSorted({ from, to }: SelectionRange): {
   lowerBound: WordPosition;
   upperBound: WordPosition;
 } {
   const fromPos = from as WordPosition;
-  const toPos = to as WordPosition;
+  const toPos = (to as WordPosition) || clonePosition(from);
 
   const lowerBound =
     fromPos.paragraph < toPos.paragraph ||
@@ -1241,7 +1257,6 @@ function getSelectionBoundSorted({ from, to }: SelectionRange): {
 }
 
 function isSelectingFullSentence(document: Document, range: SelectionRange) {
-  console.log(range.to);
   if (!range.to || (range.from as WordPosition).word === undefined) {
     return false;
   }
@@ -1254,7 +1269,7 @@ function isSelectingFullSentence(document: Document, range: SelectionRange) {
   );
 }
 
-function convertSelectionPrecision(
+export function convertSelectionPrecision(
   range: SelectionRange,
   precision: Precision
 ) {
@@ -1277,15 +1292,14 @@ export function CursorStateProvider({ children }: Props) {
   const [selectionRange, setSelectionRange] = useState<SelectionRange | null>(
     null
   );
-
   const [inputMode, setInputMode] = useState<"keyboard" | "mouse">("mouse");
 
   const { getWordAbove, getWordBelow, getWordVisualPositionInfo } =
     useWordPositionInfoRegistry();
 
-  const [selectionLevel, setSelectionLevel] = useState(Precision.SENTENCE);
-  const { document, insertWord, updateWord, deleteWord, getWord } =
-    useDocument();
+  const [selectionLevel, setSelectionLevel] = useState(Precision.WORD);
+  const { setEditorMode } = useEditorMode();
+  const { document } = useDocument();
 
   const [hasSelectionRangeChanged, setHasSelectionRangeChanged] =
     useState(false);
@@ -1401,7 +1415,8 @@ export function CursorStateProvider({ children }: Props) {
             ) || prev
           );
         }
-        const currentWordPosition = (prev.to || prev.from) as WordPosition;
+        const currentWordPosition = (prev.to ||
+          clonePosition(prev.from)) as WordPosition;
         const visualPosition = getWordVisualPositionInfo(currentWordPosition);
         if (!visualPosition) return prev;
 
@@ -1436,7 +1451,8 @@ export function CursorStateProvider({ children }: Props) {
           );
         }
 
-        const currentWordPosition = (prev.to || prev.from) as WordPosition;
+        const currentWordPosition = (prev.to ||
+          clonePosition(prev.from)) as WordPosition;
         const visualPosition = getWordVisualPositionInfo(currentWordPosition);
         if (!visualPosition) return prev;
 
@@ -1456,7 +1472,7 @@ export function CursorStateProvider({ children }: Props) {
       if (prev === null) {
         return { from: position, to: position };
       }
-      const prevPosition = prev.to || prev.from;
+      const prevPosition = prev.to || clonePosition(prev.from);
       if (isSentencePosition(prevPosition)) {
         return {
           from: convertToWordPosition(document, prevPosition, "start"),
@@ -1472,7 +1488,7 @@ export function CursorStateProvider({ children }: Props) {
       if (prev === null) {
         return { from: position, to: position };
       }
-      const prevPosition = prev.to || prev.from;
+      const prevPosition = prev.to || clonePosition(prev.from);
       if (isSentencePosition(prevPosition)) {
         return {
           from: convertToWordPosition(document, prevPosition, "end"),
@@ -1491,7 +1507,7 @@ export function CursorStateProvider({ children }: Props) {
 
       const pos = convertToWordPosition(
         document,
-        prev.to || prev.from,
+        prev.to || clonePosition(prev.from),
         "start"
       );
       const lastPunctuationPos = getPrevPunctuationPosition(document, pos);
@@ -1505,7 +1521,7 @@ export function CursorStateProvider({ children }: Props) {
 
       const pos = convertToWordPosition(
         document,
-        prev.to || prev.from,
+        prev.to || clonePosition(prev.from),
         "start"
       );
       const nextPunctuationPos = getNextPunctuationPosition(document, pos);
@@ -1653,7 +1669,7 @@ export function CursorStateProvider({ children }: Props) {
       if (prev === null) return prev;
       const newSelection = createSelection(
         prev.from,
-        prev.to || prev.from,
+        prev.to || clonePosition(prev.from),
         Precision.WORD
       );
       if (getPrecision(prev.from) !== Precision.WORD) {
@@ -1674,7 +1690,7 @@ export function CursorStateProvider({ children }: Props) {
       if (prev === null) return prev;
       const newSelection = createSelection(
         prev.from,
-        prev.to || prev.from,
+        prev.to || clonePosition(prev.from),
         Precision.WORD
       );
       if (getPrecision(prev.from) !== Precision.WORD) {
@@ -1703,6 +1719,11 @@ export function CursorStateProvider({ children }: Props) {
     );
     stopSelecting();
     setSelectionLevel(Precision.WORD);
+  });
+
+  useHotkeys("enter", (e) => {
+    e.preventDefault();
+    setEditorMode("edit");
   });
 
   // selection range changed
