@@ -43,13 +43,6 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     setIsCommented((commented) => !commented);
     setIsSelected(false);
   });
-  // useEventListener("keydown", (e) => {
-  //   if (!(e.metaKey && e.shiftKey) || (e.key !== "s" && e.key !== "x")) return;
-  //   e.preventDefault();
-  //   if (!isSelected) return;
-  //   setIsCommented((commented) => !commented);
-  //   setIsSelected(false);
-  // });
 
   useEffect(() => {
     if (!selectionRange) {
@@ -90,7 +83,7 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     isSelecting,
   ]);
 
-  const handleMouseDown = (e: MouseEvent) => {
+  const handleMouseDown = () => {
     if (!isSentenceSelectionMode) return;
     // if (e.getModifierState("Shift")) {
     //   if (selectionRange !== null) {

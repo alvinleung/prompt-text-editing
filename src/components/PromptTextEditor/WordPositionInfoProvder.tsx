@@ -2,10 +2,12 @@ import React, {
   createContext,
   PropsWithChildren,
   useContext,
+  useEffect,
   useMemo,
   useRef,
 } from "react";
 import { WordPosition } from "./CursorStateProvider";
+import { useDocument } from "./DocumentProvider";
 
 type Props = {};
 
@@ -24,7 +26,7 @@ type Line = {
 interface ContextType {
   registerWordInfo: WordInfoUpdater;
   getWordVisualPositionInfo: (
-    position: WordPosition
+    position: WordPosition,
   ) => VisualPositionInfo | undefined;
   getWordBelow: (visualPosition: VisualPositionInfo) => WordInfo | undefined;
   getWordAbove: (visualPosition: VisualPositionInfo) => WordInfo | undefined;
@@ -46,25 +48,32 @@ const WordPositionContext = createContext<ContextType>({
 export const useWordPositionInfoRegistry = () =>
   useContext(WordPositionContext);
 
+const getWordPositionHash = (position: WordPosition) =>
+  `${position.paragraph}-${position.sentence}-${position.word}`;
+const getHorizontalPositionHash = (wordInfo: WordInfo) =>
+  `${wordInfo.pixelLeft}`;
+
 const WordPositionInfoProvider = ({ children }: PropsWithChildren) => {
-  const lines = useRef([] as Line[]).current;
-
+  const lines = useRef([] as Line[]);
   const visualPositionIndex = useRef(
-    {} as { [key: string]: VisualPositionInfo }
-  ).current;
+    {} as { [key: string]: VisualPositionInfo },
+  );
 
-  const getWordPositionHash = (position: WordPosition) =>
-    `${position.paragraph}-${position.sentence}-${position.word}`;
-
-  const getHorizontalPositionHash = (wordInfo: WordInfo) =>
-    `${wordInfo.pixelLeft}`;
+  const { document } = useDocument();
+  useEffect(() => {
+    // reset lines and visual position once document is updated
+    lines.current = [];
+    visualPositionIndex.current = {};
+  }, [document]);
 
   const registerWordInfo = (wordInfo: WordInfo) => {
     // put info into the line based elements
-    if (!lines[wordInfo.line]) lines[wordInfo.line] = {};
-    lines[wordInfo.line][getHorizontalPositionHash(wordInfo)] = wordInfo;
+    const visualPositionIndexArr = visualPositionIndex.current;
+    const linesArr = lines.current;
+    if (!linesArr[wordInfo.line]) linesArr[wordInfo.line] = {};
+    linesArr[wordInfo.line][getHorizontalPositionHash(wordInfo)] = wordInfo;
 
-    visualPositionIndex[getWordPositionHash(wordInfo.position)] = {
+    visualPositionIndexArr[getWordPositionHash(wordInfo.position)] = {
       line: wordInfo.line,
       pixelLeft: wordInfo.pixelLeft,
     };
@@ -73,7 +82,7 @@ const WordPositionInfoProvider = ({ children }: PropsWithChildren) => {
   const searchClosestWordInLine = (
     lines: Line[],
     lineNumber: number,
-    pixelLeft: number
+    pixelLeft: number,
   ) => {
     let closestWord: WordInfo | undefined;
     let closestWordDist = 100000000;
@@ -95,15 +104,18 @@ const WordPositionInfoProvider = ({ children }: PropsWithChildren) => {
     return closestWord;
   };
   const getWordAbove = ({ line, pixelLeft }: VisualPositionInfo) => {
+    const linesArr = lines.current;
     if (line - 1 < 0) return;
-    return searchClosestWordInLine(lines, line - 1, pixelLeft);
+    return searchClosestWordInLine(linesArr, line - 1, pixelLeft);
   };
   const getWordBelow = ({ line, pixelLeft }: VisualPositionInfo) => {
-    if (line + 1 >= lines.length) return;
-    return searchClosestWordInLine(lines, line + 1, pixelLeft);
+    const linesArr = lines.current;
+    if (line + 1 >= linesArr.length) return;
+    return searchClosestWordInLine(linesArr, line + 1, pixelLeft);
   };
   const getWordVisualPositionInfo = (position: WordPosition) => {
-    return visualPositionIndex[getWordPositionHash(position)];
+    const visualPositionIndexArr = visualPositionIndex.current;
+    return visualPositionIndexArr[getWordPositionHash(position)];
   };
 
   return (

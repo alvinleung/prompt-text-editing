@@ -13,15 +13,15 @@ type Props = {
 
 const PromptTextEditor = (props: Props) => {
   return (
-    <WordPositionInfoProvider>
-      <EditorModeContextProvider>
-        <DocumentProvider>
+    <EditorModeContextProvider>
+      <DocumentProvider>
+        <WordPositionInfoProvider>
           <CursorStateProvider>
             <DocumentBlock />
           </CursorStateProvider>
-        </DocumentProvider>
-      </EditorModeContextProvider>
-    </WordPositionInfoProvider>
+        </WordPositionInfoProvider>
+      </DocumentProvider>
+    </EditorModeContextProvider>
   );
 };
 
