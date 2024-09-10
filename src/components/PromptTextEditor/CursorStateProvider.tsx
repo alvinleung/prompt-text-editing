@@ -1737,12 +1737,13 @@ export function CursorStateProvider({ children }: Props) {
 
   // typing and replace when start typing in select mode
   useEventListener("keydown", (e) => {
-    const modifierKeys = ["Alt", "Control", "Meta", "Shift", "AltGraph"];
+    const modifierKeys = ["Alt", "Control", "Meta", "AltGraph"];
     const isPressingModifier = modifierKeys.some((key) =>
       e.getModifierState(key),
     );
 
     if (isPressingModifier) return;
+
     // go into edit mode for enter key
     if (e.key.length !== 1) {
       return;

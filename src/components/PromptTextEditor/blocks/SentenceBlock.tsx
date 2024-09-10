@@ -10,6 +10,7 @@ import { Sentence, useDocument } from "../DocumentProvider";
 import { WordBlock } from "./WordBlock";
 import React from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { useEventCallback, useEventListener } from "usehooks-ts";
 
 type SentenceBlockProp = {
   content: Sentence;
@@ -36,11 +37,19 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
 
   const commentedStyle = isCommented ? "opacity-20" : "opacity-100";
 
-  useHotkeys("shift+x", () => {
+  useHotkeys("meta+shift+x", (e) => {
+    e.preventDefault();
     if (!isSelected) return;
     setIsCommented((commented) => !commented);
     setIsSelected(false);
   });
+  // useEventListener("keydown", (e) => {
+  //   if (!(e.metaKey && e.shiftKey) || (e.key !== "s" && e.key !== "x")) return;
+  //   e.preventDefault();
+  //   if (!isSelected) return;
+  //   setIsCommented((commented) => !commented);
+  //   setIsSelected(false);
+  // });
 
   useEffect(() => {
     if (!selectionRange) {
