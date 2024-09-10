@@ -1499,6 +1499,38 @@ export function CursorStateProvider({ children }: Props) {
   });
 
   // ==============================================
+  // FEATURE: move between sentences using tab
+  // ==============================================
+  useHotkeys("shift+tab", (e) => {
+    e.preventDefault();
+    setSelectionRange((prev) => {
+      if (prev === null) {
+        // enter sentence selection mode when start using arrow keys
+        return {
+          from: convertToSentencePosition(document, position),
+          to: convertToSentencePosition(document, position),
+        };
+      }
+      setSelectionLevel(Precision.SENTENCE);
+      return moveSelectionBySentence(document, prev, -1, false) || prev;
+    });
+  });
+  useHotkeys("tab", (e) => {
+    e.preventDefault();
+    setSelectionRange((prev) => {
+      if (prev === null) {
+        // enter sentence selection mode when start using arrow keys
+        return {
+          from: convertToSentencePosition(document, position),
+          to: convertToSentencePosition(document, position),
+        };
+      }
+      setSelectionLevel(Precision.SENTENCE);
+      return moveSelectionBySentence(document, prev, 1, false) || prev;
+    });
+  });
+
+  // ==============================================
   // FEATURE: jump word between puntuation when option Arrow
   // ==============================================
   useHotkeys("alt+ArrowLeft", () => {
