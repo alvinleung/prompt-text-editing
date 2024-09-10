@@ -1,6 +1,10 @@
 import React, { MutableRefObject, useEffect, useRef, useState } from "react";
 import { ParagraphBlock } from "./ParagraphBlock";
-import { convertDocumentToString, useDocument } from "../DocumentProvider";
+import {
+  convertDocumentToString,
+  getWordPositionFromRawTextSelection,
+  useDocument,
+} from "../DocumentProvider";
 import {
   getPrecisionName,
   Precision,
@@ -15,7 +19,13 @@ type Props = {};
 const DocumentBlock = (props: Props) => {
   const { document, updateDocument, rawText } = useDocument();
 
-  const { selectionLevel, inputMode, selectionRange } = useCursorState();
+  const {
+    selectionLevel,
+    setPosition,
+    inputMode,
+    selectionRange,
+    setSelectionRange,
+  } = useCursorState();
   const { editorMode, setEditorMode } = useEditorMode();
 
   const [editorContent, setEditorContent] = useState(rawText);
@@ -24,7 +34,17 @@ const DocumentBlock = (props: Props) => {
   useEffect(() => {
     // apply text when exiting edit mode
     if (editorMode !== "edit") {
+      // update document
       updateDocument(editorContent);
+      // update selection
+      const rawTextSelectionWordPosition = getWordPositionFromRawTextSelection(
+        editorContent,
+        editorTextAreaRef.current.selectionStart,
+        editorTextAreaRef.current.selectionEnd
+      );
+      rawTextSelectionWordPosition.to &&
+        setPosition(rawTextSelectionWordPosition.to);
+      setSelectionRange(rawTextSelectionWordPosition || null);
     }
   }, [editorMode, editorContent]);
 

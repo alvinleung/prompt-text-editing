@@ -237,3 +237,50 @@ export function convertDocumentToString(
     selection: result.substring(selectionBeginIndex, selectionEndIndex),
   };
 }
+
+export function getWordPositionFromRawTextSelection(
+  documentSource: string,
+  begin: number,
+  end: number
+): SelectionRange {
+  // Updated return type
+  const paragraphs = documentSource.split("\n");
+  let charCount = 0;
+  let startPosition: WordPosition | null = null;
+  let endPosition: WordPosition | null = null;
+
+  for (let p = 0; p < paragraphs.length; p++) {
+    const sentences = paragraphs[p]
+      .replace(/([.?!])\s*(?=[A-Z])/g, "$1|")
+      .split("|");
+
+    for (let s = 0; s < sentences.length; s++) {
+      const words = sentences[s].split(" ");
+
+      for (let w = 0; w < words.length; w++) {
+        const wordLength = words[w].length + 1; // +1 for space
+
+        if (charCount + wordLength > begin && !startPosition) {
+          startPosition = { paragraph: p, sentence: s, word: w }; // Capture start position
+        }
+        const isBeginAndEndSame = begin === end;
+        if (
+          // to fix edge case of selection
+          ((!isBeginAndEndSame && charCount + wordLength > end - 1) ||
+            (isBeginAndEndSame && charCount + wordLength > end)) &&
+          !endPosition
+        ) {
+          endPosition = { paragraph: p, sentence: s, word: w }; // Capture end position
+        }
+
+        charCount += wordLength;
+      }
+    }
+  }
+
+  if (!startPosition || !endPosition) {
+    throw new Error("Selection range is out of bounds.");
+  }
+
+  return { from: startPosition, to: endPosition }; // Return both positions
+}

@@ -48,8 +48,8 @@ export const WordBlock = ({
       (isSelectionModeSentence && isHoveringParentSentence))
       ? "bg-zinc-700"
       : isSelected
-        ? "bg-zinc-700"
-        : "";
+      ? "bg-zinc-700"
+      : "";
 
   const handleSelect = () => {
     if (!canSelectWord) return;

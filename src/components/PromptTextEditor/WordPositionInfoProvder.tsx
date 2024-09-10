@@ -26,7 +26,7 @@ type Line = {
 interface ContextType {
   registerWordInfo: WordInfoUpdater;
   getWordVisualPositionInfo: (
-    position: WordPosition,
+    position: WordPosition
   ) => VisualPositionInfo | undefined;
   getWordBelow: (visualPosition: VisualPositionInfo) => WordInfo | undefined;
   getWordAbove: (visualPosition: VisualPositionInfo) => WordInfo | undefined;
@@ -56,7 +56,7 @@ const getHorizontalPositionHash = (wordInfo: WordInfo) =>
 const WordPositionInfoProvider = ({ children }: PropsWithChildren) => {
   const lines = useRef([] as Line[]);
   const visualPositionIndex = useRef(
-    {} as { [key: string]: VisualPositionInfo },
+    {} as { [key: string]: VisualPositionInfo }
   );
 
   const { document } = useDocument();
@@ -82,7 +82,7 @@ const WordPositionInfoProvider = ({ children }: PropsWithChildren) => {
   const searchClosestWordInLine = (
     lines: Line[],
     lineNumber: number,
-    pixelLeft: number,
+    pixelLeft: number
   ) => {
     let closestWord: WordInfo | undefined;
     let closestWordDist = 100000000;
