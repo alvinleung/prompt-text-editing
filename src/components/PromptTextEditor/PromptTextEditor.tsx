@@ -8,15 +8,24 @@ import WordPositionInfoProvider from "./WordPositionInfoProvder";
 import EditorModeContextProvider from "./EditorModeContext";
 
 type Props = {
-  // empty props
+  isActive: boolean;
+  promptText: string;
+  onPromptTextUpdate: (latest: string) => void;
 };
 
-const PromptTextEditor = (props: Props) => {
+const PromptTextEditor = ({
+  isActive,
+  promptText,
+  onPromptTextUpdate,
+}: Props) => {
   return (
     <EditorModeContextProvider>
-      <DocumentProvider>
+      <DocumentProvider
+        promptText={promptText}
+        onPromptTextUpdate={onPromptTextUpdate}
+      >
         <WordPositionInfoProvider>
-          <CursorStateProvider>
+          <CursorStateProvider isActive={isActive}>
             <DocumentBlock />
           </CursorStateProvider>
         </WordPositionInfoProvider>

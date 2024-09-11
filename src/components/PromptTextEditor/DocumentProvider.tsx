@@ -63,7 +63,7 @@ Then, identify the matching menu items, starting with "Matched Items:". Do not i
 
 Thus, the format of your overall response should look like what's shown between the <example></example> tags. Make sure to follow the formatting and spacing exactly.
 
-Here is the spoken order: 
+Here is the spoken order:
 {ORDER}
 
 If no items can be matched from the menu, say so.
@@ -73,7 +73,7 @@ Identify the items immediately without preamble.
   .trimEnd();
 
 */
-const CONTENT = `
+export const CONTENT = `
 I'm going to give you a restaurant's menu. Then I'm going to ask you to identify which menu items match a given spoken order. I'd like you to first write down exact quotes from the menu that correspond to the spoken order, and then I'd like you to identify the menu items using facts from the quoted content. Here is the menu:
 
 <menu>
@@ -110,12 +110,19 @@ export function useDocument() {
   return useContext(EditorContentContext);
 }
 
-type Props = {};
+type Props = {
+  promptText: string;
+  onPromptTextUpdate: (latest: string) => void;
+};
 
-export function DocumentProvider({ children }: React.PropsWithChildren<Props>) {
+export function DocumentProvider({
+  children,
+  promptText = CONTENT,
+  onPromptTextUpdate,
+}: React.PropsWithChildren<Props>) {
   const document = useMemo(() => {
-    return createDocument(CONTENT);
-  }, []);
+    return createDocument(promptText);
+  }, [promptText]);
 
   const [documentState, setDocumentState] = useState(document);
 
@@ -131,7 +138,7 @@ export function DocumentProvider({ children }: React.PropsWithChildren<Props>) {
       prev[position.paragraph][position.sentence].splice(
         position.word,
         0,
-        word
+        word,
       );
       return prev;
     });
@@ -148,6 +155,7 @@ export function DocumentProvider({ children }: React.PropsWithChildren<Props>) {
     return documentState[position.paragraph][position.sentence][position.word];
   };
   const updateDocument = (newDocumentString: string) => {
+    onPromptTextUpdate(newDocumentString);
     setDocumentState(createDocument(newDocumentString));
   };
 
@@ -170,7 +178,7 @@ export function DocumentProvider({ children }: React.PropsWithChildren<Props>) {
 
 export function convertDocumentToString(
   document: Document,
-  range: SelectionRange
+  range: SelectionRange,
 ) {
   let result = "";
 
@@ -241,7 +249,7 @@ export function convertDocumentToString(
 export function getWordPositionFromRawTextSelection(
   documentSource: string,
   begin: number,
-  end: number
+  end: number,
 ): SelectionRange {
   // Updated return type
   const paragraphs = documentSource.split("\n");

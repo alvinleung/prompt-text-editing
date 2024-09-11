@@ -13,6 +13,7 @@ import {
 import { useEditorMode } from "../EditorModeContext";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useEventListener } from "usehooks-ts";
+import { useCreateVariation } from "@/components/ProjectWorkspace/ProjectWorkspace";
 
 type Props = {};
 
@@ -40,7 +41,7 @@ const DocumentBlock = (props: Props) => {
       const rawTextSelectionWordPosition = getWordPositionFromRawTextSelection(
         editorContent,
         editorTextAreaRef.current.selectionStart,
-        editorTextAreaRef.current.selectionEnd
+        editorTextAreaRef.current.selectionEnd,
       );
       rawTextSelectionWordPosition.to &&
         setPosition(rawTextSelectionWordPosition.to);
@@ -48,9 +49,12 @@ const DocumentBlock = (props: Props) => {
     }
   }, [editorMode, editorContent]);
 
+  const { createVariation, variations } = useCreateVariation();
   // select text when entering selection mode
   useEffect(() => {
     if (editorMode === "edit" && selectionRange !== null) {
+      variations.length === 1 && createVariation();
+
       const { result, selection, selectionBegin, selectionEnd } =
         convertDocumentToString(document, selectionRange);
       editorTextAreaRef.current.focus();
@@ -66,11 +70,11 @@ const DocumentBlock = (props: Props) => {
         setEditorMode("select");
       }
     },
-    editorTextAreaRef
+    editorTextAreaRef,
   );
 
   return (
-    <div className="relative p-4 select-none max-w-[56ch] text-[14px] mx-auto leading-none tracking-normal">
+    <div className="relative p-4 select-none text-[14px] mx-auto leading-none tracking-normal">
       <div
         style={{
           visibility: editorMode === "select" ? "visible" : "hidden",
