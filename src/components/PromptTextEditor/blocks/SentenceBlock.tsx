@@ -10,7 +10,6 @@ import { Sentence, useDocument } from "../DocumentProvider";
 import { WordBlock } from "./WordBlock";
 import React from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useEventCallback, useEventListener } from "usehooks-ts";
 
 type SentenceBlockProp = {
   content: Sentence;
@@ -41,7 +40,26 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     e.preventDefault();
     if (!isSelected) return;
     setIsCommented((commented) => !commented);
-    setIsSelected(false);
+  });
+
+  useHotkeys("meta+/", (e) => {
+    e.preventDefault();
+
+    if (isSentenceSelectionMode && isSelected) {
+      setIsCommented((commented) => !commented);
+      return;
+    }
+
+    // try to see if a word inside the sentence is selected
+    if (selectionRange === null) return;
+    const isWithingWordSelection = isInsideSelectionRange(
+      document,
+      position,
+      selectionRange,
+    );
+    if (isWithingWordSelection) {
+      setIsCommented((commented) => !commented);
+    }
   });
 
   useEffect(() => {

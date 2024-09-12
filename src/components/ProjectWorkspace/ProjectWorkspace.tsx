@@ -65,7 +65,7 @@ function ProjectWorkspace() {
           <div
             className={`${variations.length <= 1 ? "hidden" : isHoveringVariationSelector ? "opacity-50 mt-2" : " mt-2 opacity-0"}`}
           >
-            <Tooltip message={`Accept variation "${currentVariation + 1}"`}>
+            <Tooltip message={`Commit variation "${currentVariation + 1}"`}>
               <button className="h-6 w-6 flex justify-center items-center opacity-60 bg-zinc-700 rounded-md">
                 <ConfirmIcon />
               </button>

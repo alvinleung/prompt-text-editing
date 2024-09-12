@@ -19,12 +19,12 @@ const DiffViewer = ({ before, after }: Props) => {
           return (
             <span
               key={index}
-              className={`${result.removed && "line-through text-zinc-500"} ${result.added && "text-green-400"}`}
+              className={` ${result.removed && "line-through text-zinc-500"} ${result.added && "text-green-400"}`}
             >
               {splittedValue.map(function (item, idx) {
                 return (
                   <React.Fragment key={idx}>
-                    {item}
+                    <span>{item}</span>
                     {idx !== splittedValue.length - 1 && <br />}
                   </React.Fragment>
                 );

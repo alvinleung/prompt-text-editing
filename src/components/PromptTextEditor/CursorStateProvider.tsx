@@ -15,7 +15,6 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 import { useWordPositionInfoRegistry } from "./WordPositionInfoProvder";
 import { useEditorMode } from "./EditorModeContext";
-import { Result } from "postcss";
 
 // include all punctuations
 const PUNTUATION_REGEX = /[\s;:.,"]/;
@@ -1362,7 +1361,7 @@ export function CursorStateProvider({ children, isActive }: Props) {
     (e) => {
       if (!isActive) return;
       if (e.ctrlKey) return;
-      if (e.altKey) return;
+      // if (e.altKey) return;
       if (e.metaKey) return;
       if (e.shiftKey) return;
       setInputMode("keyboard");

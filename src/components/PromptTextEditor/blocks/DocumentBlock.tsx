@@ -54,9 +54,10 @@ const DocumentBlock = (props: Props) => {
   useEffect(() => {
     if (editorMode === "edit" && selectionRange !== null) {
       variations.length === 1 && createVariation();
-
-      const { result, selection, selectionBegin, selectionEnd } =
-        convertDocumentToString(document, selectionRange);
+      const { selectionBegin, selectionEnd } = convertDocumentToString(
+        document,
+        selectionRange,
+      );
       editorTextAreaRef.current.focus();
       // console.log(JSON.stringify(result));
       editorTextAreaRef.current.setSelectionRange(selectionBegin, selectionEnd);
@@ -103,34 +104,6 @@ const DocumentBlock = (props: Props) => {
       >
         {editorContent}
       </textarea>
-      {/* <div
-        contentEditable={editorMode === "edit"}
-        ref={contentEditableRef}
-        suppressContentEditableWarning={true}
-        onInput={(e) => {
-          setRawText(e.currentTarget.textContent || "");
-        }}
-        style={{
-          display: editorMode === "edit" ? "block" : "none",
-        }}
-        className="outline-none p-4 text-white absolute bg-transparent inset-0"
-      >
-        {rawText.split("\n").map((paragraph, index) => (
-          <div key={index} className="block">
-            <div>
-              {paragraph.split(" ").map((text, index) => (
-                <span
-                  key={index}
-                  className="inline-block outline-none py-[4px]"
-                >
-                  <span>{text}</span>
-                  {text && <span>&nbsp;</span>}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div> */}
     </div>
   );
 };
