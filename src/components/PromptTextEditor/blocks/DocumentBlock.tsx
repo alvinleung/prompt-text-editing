@@ -62,7 +62,7 @@ const DocumentBlock = (props: Props) => {
       // console.log(JSON.stringify(result));
       editorTextAreaRef.current.setSelectionRange(selectionBegin, selectionEnd);
     }
-  }, [document, editorMode, selectionRange]);
+  }, [document, editorMode, selectionRange, variations]);
 
   useEventListener(
     "keydown",
@@ -100,7 +100,7 @@ const DocumentBlock = (props: Props) => {
           display: editorMode === "edit" ? "block" : "none",
         }}
         onChange={(e) => setEditorContent(e.target.value)}
-        className="outline-none p-4 leading-[22px] text-white absolute bg-transparent top-0 left-0 right-0 h-[120%]"
+        className="outline-none p-4 leading-[22px] absolute bg-transparent top-0 left-0 right-0 h-[120%]"
       >
         {editorContent}
       </textarea>
