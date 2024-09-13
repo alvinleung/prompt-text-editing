@@ -219,9 +219,6 @@ export function DocumentProvider({
         newDocument[toParagraphIndex] = toParagraphSentences;
       }
 
-      const str = convertDocumentToString(newDocument, from);
-      onPromptTextUpdate(str.result);
-
       // Return the new document state
       return newDocument;
     });
