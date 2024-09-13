@@ -29,10 +29,10 @@ function ProjectWorkspace() {
     useState(false);
   const [isActive, setIsActive] = useState(true);
   const [variationColours, setVariationColours] = useState<string[]>([
-    "#ECC2E8",
     "#C1DFEC",
     "#ECE8C1",
     "#ECD2C1",
+    "#ECC2E8",
   ]);
 
   const MAX_ITERATIONS = 4;
