@@ -224,10 +224,44 @@ export function DocumentProvider({
     });
   };
 
+  const copySentence = (
+    from: SelectionRange, // Contains from.paragraph and from.sentence
+    to: SentencePosition, // Contains to.paragraph and to.sentence
+    insertion: "before" | "after" // Determines where to insert the copied sentence
+  ) => {
+    setDocumentState((prev) => {
+      const newDocument = [...prev]; // Shallow copy of the current document
+      const fromParagraphIndex = from.from.paragraph;
+      const fromSentenceIndex = from.from.sentence;
+
+      // Get the sentence to be copied
+      const sentenceToCopy = newDocument[fromParagraphIndex][fromSentenceIndex];
+
+      // Get the 'to' position
+      const toParagraphIndex = to.paragraph;
+      let toSentenceIndex = to.sentence;
+
+      // Insert the copied sentence into the target position
+      const toParagraphSentences = [...newDocument[toParagraphIndex]];
+      if (insertion === "before") {
+        toParagraphSentences.splice(toSentenceIndex, 0, sentenceToCopy);
+      } else {
+        toParagraphSentences.splice(toSentenceIndex + 1, 0, sentenceToCopy);
+      }
+
+      // Update the target paragraph in newDocument
+      newDocument[toParagraphIndex] = toParagraphSentences;
+
+      // Return the new document state
+      return newDocument;
+    });
+  };
+
   return (
     <EditorContentContext.Provider
       value={{
         moveSentence,
+        copySentence,
         document: documentState,
         updateDocument,
         insertWord,

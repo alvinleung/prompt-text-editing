@@ -15,6 +15,7 @@ import {
 import { useEventListener } from "usehooks-ts";
 import { unescape } from "querystring";
 import { useDocument } from "./DocumentProvider";
+import { useHotkeys } from "react-hotkeys-hook";
 
 type Props = {
   children: React.ReactNode;
@@ -45,7 +46,7 @@ const DraggingContext = createContext({
 
 export const useSentenceDraggingContext = () => useContext(DraggingContext);
 const SentenceDraggingContextProvider = ({ children }: Props) => {
-  const { moveSentence } = useDocument();
+  const { moveSentence, copySentence } = useDocument();
   const [draggingSelection, setDraggingSelection] = useState<
     undefined | DraggingSelection
   >();
@@ -56,13 +57,37 @@ const SentenceDraggingContextProvider = ({ children }: Props) => {
   const { selectFrom } = useCursorState();
   const allDropTargetRef = useRef<{ [key: string]: SentenceDropTarget }>({});
 
+  const isHoldingOption = useRef(false);
+
+  useEventListener("keydown", (e) => {
+    if (e.key === "Alt") {
+      // Detecting the Option key
+      isHoldingOption.current = true;
+    }
+  });
+
+  useEventListener("keyup", (e) => {
+    if (e.key === "Alt") {
+      // Reset when the Option key is released
+      isHoldingOption.current = false;
+    }
+  });
+
   useEventListener("mouseup", () => {
     if (!draggingSelection || !closestDropTarget) return;
-    moveSentence(
-      draggingSelection.range,
-      closestDropTarget.position,
-      closestDropTarget.insertion
-    );
+    if (isHoldingOption.current) {
+      copySentence(
+        draggingSelection.range,
+        closestDropTarget.position,
+        closestDropTarget.insertion
+      );
+    } else {
+      moveSentence(
+        draggingSelection.range,
+        closestDropTarget.position,
+        closestDropTarget.insertion
+      );
+    }
     setDraggingSelection(undefined);
     selectFrom(
       closestDropTarget.insertion === "before"
