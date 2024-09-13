@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useState } from "react";
+import { useCallback, useContext, useState } from "react";
 import PromptTextEditor from "../PromptTextEditor/PromptTextEditor";
 import { CONTENT } from "../PromptTextEditor/DocumentProvider";
 import { ConfirmIcon } from "./ConfirmIcon";
@@ -34,14 +34,14 @@ function ProjectWorkspace() {
   ]);
 
   const MAX_ITERATIONS = 4;
-  const createVariation = () => {
+  const createVariation = useCallback(() => {
     setVariations((prev) => {
       if (prev.length >= MAX_ITERATIONS) return prev;
       prev = [...prev, prev[currentVariation]];
       return prev;
     });
     // setCurrentVariation(currentVariation + 1);
-  };
+  }, [currentVariation]);
   return (
     <CreateVariationContext.Provider value={{ createVariation, variations }}>
       <div className="relative max-w-[56ch] mx-auto">
@@ -75,7 +75,10 @@ function ProjectWorkspace() {
               <Tooltip message={`New variation`}>
                 <button
                   className={`${variations.length !== 1 && "border-t"} border-t-zinc-600 opacity-40 w-6 h-6 flex items-center justify-center`}
-                  onClick={createVariation}
+                  onClick={() => {
+                    createVariation();
+                    setCurrentVariation(variations.length);
+                  }}
                 >
                   +
                 </button>

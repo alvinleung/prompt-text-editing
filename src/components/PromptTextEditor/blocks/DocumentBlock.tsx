@@ -7,6 +7,7 @@ import {
 } from "../DocumentProvider";
 import {
   getPrecisionName,
+  getSelectionPrecision,
   Precision,
   useCursorState,
 } from "../CursorStateProvider";
@@ -14,6 +15,7 @@ import { useEditorMode } from "../EditorModeContext";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useEventListener } from "usehooks-ts";
 import { useCreateVariation } from "@/components/ProjectWorkspace/ProjectWorkspace";
+import { SelectionIcon } from "../SelectionIcon";
 
 type Props = {};
 
@@ -74,6 +76,9 @@ const DocumentBlock = (props: Props) => {
     editorTextAreaRef,
   );
 
+  const keyboardShortcutStyle =
+    "inline-block p-1 rounded-md border border-zinc-500 text-zinc-200 text-[10px]";
+
   return (
     <div className="relative p-4 select-none text-[14px] mx-auto leading-none tracking-normal">
       <div
@@ -89,9 +94,38 @@ const DocumentBlock = (props: Props) => {
           />
         ))}
       </div>
-      <div className="fixed p-4 mx-auto bottom-0 left-0 right-0 opacity-50">
-        <div className="mx-auto min-w-[56ch]">
-          {getPrecisionName(selectionLevel)}, {inputMode}
+      <div className="fixed text-[14px] bottom-0 left-0 right-0 opacity-80">
+        <div className="text-zinc-200 flex items-center gap-4 flex-row mx-auto w-[65ch] p-4">
+          <div className="flex flex-row gap-1 pr-4 border-r border-r-zinc-700">
+            {editorMode === "edit" ? (
+              "Editing"
+            ) : (
+              <>
+                <SelectionIcon />
+                {`${selectionRange && inputMode !== "mouse" ? getPrecisionName(getSelectionPrecision(selectionRange)) : getPrecisionName(selectionLevel)}`}
+              </>
+            )}
+          </div>
+          <div
+            className={`${
+              editorMode === "edit" ||
+              selectionRange ||
+              (selectionRange &&
+                getSelectionPrecision(selectionRange) === Precision.SENTENCE)
+                ? "opacity-100"
+                : "opacity-0"
+            }`}
+          >
+            <span className="text-zinc-200 flex items-center gap-1">
+              <span className={keyboardShortcutStyle}>Esc</span>
+              {editorMode === "edit" ? "Exit" : "Deselect"}
+            </span>
+          </div>
+          <div
+            className={`flex items-center gap-1 ${selectionRange && editorMode !== "edit" ? "opacity-100" : "opacity-0"}`}
+          >
+            <span className={keyboardShortcutStyle}>⌘ /</span> Comment
+          </div>
         </div>
       </div>
       <textarea
