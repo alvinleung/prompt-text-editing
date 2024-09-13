@@ -13,13 +13,15 @@ import {
 } from "../CursorStateProvider";
 import { useEditorMode } from "../EditorModeContext";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useEventListener } from "usehooks-ts";
+import { useEventListener, useOnClickOutside } from "usehooks-ts";
 import { useCreateVariation } from "@/components/ProjectWorkspace/ProjectWorkspace";
 import { SelectionIcon } from "../SelectionIcon";
 
-type Props = {};
+type Props = {
+  isActive: boolean;
+};
 
-const DocumentBlock = (props: Props) => {
+const DocumentBlock = ({ isActive }: Props) => {
   const { document, updateDocument, rawText } = useDocument();
 
   const {
@@ -51,11 +53,22 @@ const DocumentBlock = (props: Props) => {
     }
   }, [editorMode, editorContent]);
 
-  const { createVariation, variations } = useCreateVariation();
+  const { createVariation, variations, setIsVariationSelectorActive } =
+    useCreateVariation();
+
+  useEffect(() => {
+    if (!isActive) return;
+    if (editorMode === "edit") {
+      variations.length === 1 && createVariation();
+      setIsVariationSelectorActive(false);
+      return;
+    }
+    setIsVariationSelectorActive(true);
+  }, [editorMode, isActive]);
+
   // select text when entering selection mode
   useEffect(() => {
     if (editorMode === "edit" && selectionRange !== null) {
-      variations.length === 1 && createVariation();
       const { selectionBegin, selectionEnd } = convertDocumentToString(
         document,
         selectionRange,
@@ -63,6 +76,7 @@ const DocumentBlock = (props: Props) => {
       editorTextAreaRef.current.focus();
       // console.log(JSON.stringify(result));
       editorTextAreaRef.current.setSelectionRange(selectionBegin, selectionEnd);
+      return;
     }
   }, [document, editorMode, selectionRange, variations]);
 
@@ -76,6 +90,9 @@ const DocumentBlock = (props: Props) => {
     editorTextAreaRef,
   );
 
+  useOnClickOutside(editorTextAreaRef, () => {
+    setEditorMode("select");
+  });
   const keyboardShortcutStyle =
     "inline-block p-1 rounded-md border border-zinc-500 text-zinc-200 text-[10px]";
 

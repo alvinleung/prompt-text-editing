@@ -26,7 +26,7 @@ const PromptTextEditor = ({
       >
         <WordPositionInfoProvider>
           <CursorStateProvider isActive={isActive}>
-            <DocumentBlock />
+            <DocumentBlock isActive={isActive} />
           </CursorStateProvider>
         </WordPositionInfoProvider>
       </DocumentProvider>

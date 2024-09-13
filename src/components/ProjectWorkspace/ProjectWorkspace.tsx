@@ -13,7 +13,8 @@ import { RunIcon } from "./RunIcon";
 const CreateVariationContext = React.createContext({
   createVariation: () => {},
   variations: [] as string[],
-  // updateVariation: (text:string, index:number) => {};
+  // updateVariation: (text:string, index:number) => {},
+  setIsVariationSelectorActive: (active: boolean) => {},
 });
 
 export const useCreateVariation = () => useContext(CreateVariationContext);
@@ -26,6 +27,7 @@ function ProjectWorkspace() {
   const [variations, setVariations] = useState<string[]>([CONTENT]);
   const [isHoveringVariationSelector, setIsHoveringVariationSelector] =
     useState(false);
+  const [isActive, setIsActive] = useState(true);
   const [variationColours, setVariationColours] = useState<string[]>([
     "#ECC2E8",
     "#C1DFEC",
@@ -43,12 +45,18 @@ function ProjectWorkspace() {
     // setCurrentVariation(currentVariation + 1);
   }, [currentVariation]);
   return (
-    <CreateVariationContext.Provider value={{ createVariation, variations }}>
+    <CreateVariationContext.Provider
+      value={{
+        createVariation,
+        variations,
+        setIsVariationSelectorActive: setIsActive,
+      }}
+    >
       <div className="relative max-w-[56ch] mx-auto">
         <div
           onMouseLeave={() => setIsHoveringVariationSelector(false)}
           onMouseEnter={() => setIsHoveringVariationSelector(true)}
-          className="flex flex-col absolute -left-8 mt-4 z-10"
+          className={`${isActive ? "opacity-100" : "opacity-40 pointer-events-none"} flex flex-col absolute -left-8 mt-4 z-10`}
         >
           <div
             className={`flex flex-col ${variations.length !== 1 && "bg-zinc-800"} rounded-md mt`}
