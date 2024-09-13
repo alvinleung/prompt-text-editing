@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { MutableRefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
+  getTextFromRange,
   isEqualPosition,
   isInsideSelectionRange,
   Precision,
@@ -10,6 +11,7 @@ import { Sentence, useDocument } from "../DocumentProvider";
 import { WordBlock } from "./WordBlock";
 import React from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { useSentenceDraggingContext } from "../SentenceDraggingContext";
 
 type SentenceBlockProp = {
   content: Sentence;
@@ -17,6 +19,8 @@ type SentenceBlockProp = {
 };
 
 export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
+  const { draggingSelection, setDraggingSelection } =
+    useSentenceDraggingContext();
   const {
     selectionLevel,
     inputMode,
@@ -55,7 +59,7 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     const isWithingWordSelection = isInsideSelectionRange(
       document,
       position,
-      selectionRange,
+      selectionRange
     );
     if (isWithingWordSelection) {
       setIsCommented((commented) => !commented);
@@ -84,6 +88,7 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     if (!isHovering) return;
     if (!isSelecting) return;
     if (!selectionRange) return;
+    if (draggingSelection) return;
 
     const isCurrentPositionAtSelectionBound =
       isEqualPosition(selectionRange.from, position) ||
@@ -99,7 +104,18 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     selectTo,
     isSentenceSelectionMode,
     isSelecting,
+    draggingSelection,
   ]);
+
+  const isWithinSelection = useMemo(() => {
+    if (!selectionRange) return;
+    const isWithingWordSelection = isInsideSelectionRange(
+      document,
+      position,
+      selectionRange
+    );
+    return isWithingWordSelection;
+  }, [document, position, selectionRange]);
 
   const handleMouseDown = () => {
     if (!isSentenceSelectionMode) return;
@@ -110,20 +126,37 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
     //   return;
     // }
     selectFrom(position);
+    if (selectionRange && isSelected) {
+      const currentSelectionRange = { from: position, to: position };
+      setDraggingSelection({
+        range: currentSelectionRange,
+        content: document[position.paragraph][position.sentence].join(" "),
+      });
+    }
   };
   const handleDoubleClick = () => {
     selectFrom(position);
     stopSelecting();
   };
 
+  const hasEndingDropTarget =
+    document[position.paragraph].length - 1 === position.sentence;
+
   return (
     <span
-      className={`${commentedStyle}`}
+      className={`${commentedStyle} ${
+        draggingSelection && isWithinSelection && "opacity-80"
+      } ${isSelected && ""}`}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
     >
+      <SentenceDropTarget
+        isActive={draggingSelection}
+        position={position}
+        insertion={"before"}
+      />
       {/* {isCommented && (
         <span
           className="bg-zinc-600 px-1"
@@ -149,13 +182,72 @@ export const SentenceBlock = ({ content, position }: SentenceBlockProp) => {
                 content={item}
                 spaceBefore={isFirstElement}
                 spaceAfter={!isLastElement}
-                isHoveringParentSentence={isHovering && inputMode === "mouse"}
+                isHoveringParentSentence={
+                  isHovering && !draggingSelection && inputMode === "mouse"
+                }
               />
             )}
             {/* add a space between word */}
           </React.Fragment>
         );
       })}
+      {hasEndingDropTarget && content[0] !== "" && (
+        <SentenceDropTarget
+          isActive={draggingSelection}
+          position={position}
+          insertion={"after"}
+        />
+      )}
     </span>
   );
 };
+
+type SentenceDropTargetProps = {
+  isActive: boolean;
+  position: SentencePosition;
+  insertion: "after" | "before";
+};
+function SentenceDropTarget({
+  isActive,
+  position,
+  insertion,
+}: SentenceDropTargetProps) {
+  const { draggingSelection, allDropTargetRef, closestDropTarget } =
+    useSentenceDraggingContext();
+
+  const dropTargetRef = useRef() as MutableRefObject<HTMLSpanElement>;
+
+  useEffect(() => {
+    if (!draggingSelection) return;
+    const hash = `${position.paragraph}-${position.sentence}-${insertion}`;
+    const bounds = dropTargetRef.current.getBoundingClientRect();
+    allDropTargetRef.current[hash] = {
+      domPosition: bounds,
+      position,
+      insertion,
+    };
+  }, [
+    draggingSelection,
+    closestDropTarget,
+    position,
+    insertion,
+    allDropTargetRef,
+  ]);
+
+  return (
+    <span className="relative">
+      <span
+        ref={dropTargetRef}
+        className={`${
+          isActive &&
+          closestDropTarget?.position === position &&
+          closestDropTarget.insertion === insertion
+            ? "opacity-100"
+            : "opacity-0"
+        } absolute left-0 inline-block bg-blue-300 w-1 h-full`}
+      >
+        &nbsp;
+      </span>
+    </span>
+  );
+}

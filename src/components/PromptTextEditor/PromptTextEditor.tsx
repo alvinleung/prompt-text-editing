@@ -6,6 +6,7 @@ import DocumentBlock from "./blocks/DocumentBlock";
 import { DocumentProvider } from "./DocumentProvider";
 import WordPositionInfoProvider from "./WordPositionInfoProvder";
 import EditorModeContextProvider from "./EditorModeContext";
+import SentenceDraggingContextProvider from "./SentenceDraggingContext";
 
 type Props = {
   isActive: boolean;
@@ -26,7 +27,9 @@ const PromptTextEditor = ({
       >
         <WordPositionInfoProvider>
           <CursorStateProvider isActive={isActive}>
-            <DocumentBlock isActive={isActive} />
+            <SentenceDraggingContextProvider>
+              <DocumentBlock isActive={isActive} />
+            </SentenceDraggingContextProvider>
           </CursorStateProvider>
         </WordPositionInfoProvider>
       </DocumentProvider>

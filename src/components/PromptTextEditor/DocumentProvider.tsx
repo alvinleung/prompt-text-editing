@@ -10,14 +10,17 @@
 
 import { createContext, useContext, useMemo, useState } from "react";
 import {
+  BlockPosition,
   clonePosition,
   convertSelectionPrecision,
   getSelectionBoundSorted,
   getSelectionPrecision,
   Precision,
   SelectionRange,
+  SentencePosition,
   WordPosition,
 } from "./CursorStateProvider";
+import { Position } from "postcss";
 
 interface Variable {
   id: string;
@@ -101,6 +104,11 @@ const EditorContentContext = createContext({
   document: [] as Document,
   rawText: "",
   updateDocument: (newString: string) => {},
+  moveSentence: (
+    from: SelectionRange,
+    to: SentencePosition,
+    insertion: "before" | "after"
+  ) => {},
   insertWord: (position: WordPosition, word: string) => {},
   deleteWord: (position: WordPosition) => {},
   updateWord: (position: WordPosition, word: string) => {},
@@ -138,7 +146,7 @@ export function DocumentProvider({
       prev[position.paragraph][position.sentence].splice(
         position.word,
         0,
-        word,
+        word
       );
       return prev;
     });
@@ -158,10 +166,71 @@ export function DocumentProvider({
     onPromptTextUpdate(newDocumentString);
     setDocumentState(createDocument(newDocumentString));
   };
+  const moveSentence = (
+    from: SelectionRange, // Contains from.paragraph and from.sentence
+    to: SentencePosition, // Contains to.paragraph and to.sentence
+    insertion: "before" | "after" // Determines where to insert the moved sentence
+  ) => {
+    setDocumentState((prev) => {
+      const newDocument = [...prev]; // Shallow copy of the current document
+      // Get the 'from' position
+      const fromParagraphIndex = from.from.paragraph;
+      const fromSentenceIndex = from.from.sentence;
+
+      // Get the 'to' position
+      const toParagraphIndex = to.paragraph;
+      let toSentenceIndex = to.sentence;
+
+      // Get the sentences in the 'from' and 'to' paragraphs
+      const fromParagraphSentences = [...newDocument[fromParagraphIndex]];
+      const toParagraphSentences = [...newDocument[toParagraphIndex]];
+
+      // Remove the sentence from the 'from' position
+      const [movedSentence] = fromParagraphSentences.splice(
+        fromSentenceIndex,
+        1
+      );
+
+      // Adjust the index only if moving within the same paragraph
+      if (fromParagraphIndex === toParagraphIndex) {
+        if (fromSentenceIndex < toSentenceIndex) {
+          // If the sentence is being moved forward within the same paragraph, adjust the index
+          toSentenceIndex -= 1;
+        }
+        // Insert the sentence in the same paragraph
+        if (insertion === "before") {
+          fromParagraphSentences.splice(toSentenceIndex, 0, movedSentence);
+        } else {
+          fromParagraphSentences.splice(toSentenceIndex + 1, 0, movedSentence);
+        }
+
+        // Update the paragraph in newDocument
+        newDocument[fromParagraphIndex] = fromParagraphSentences;
+      } else {
+        // Insert the sentence into a different paragraph
+        if (insertion === "before") {
+          toParagraphSentences.splice(toSentenceIndex, 0, movedSentence);
+        } else {
+          toParagraphSentences.splice(toSentenceIndex + 1, 0, movedSentence);
+        }
+
+        // Update both paragraphs in newDocument
+        newDocument[fromParagraphIndex] = fromParagraphSentences;
+        newDocument[toParagraphIndex] = toParagraphSentences;
+      }
+
+      const str = convertDocumentToString(newDocument, from);
+      onPromptTextUpdate(str.result);
+
+      // Return the new document state
+      return newDocument;
+    });
+  };
 
   return (
     <EditorContentContext.Provider
       value={{
+        moveSentence,
         document: documentState,
         updateDocument,
         insertWord,
@@ -178,7 +247,7 @@ export function DocumentProvider({
 
 export function convertDocumentToString(
   document: Document,
-  range: SelectionRange,
+  range: SelectionRange
 ) {
   let result = "";
 
@@ -249,7 +318,7 @@ export function convertDocumentToString(
 export function getWordPositionFromRawTextSelection(
   documentSource: string,
   begin: number,
-  end: number,
+  end: number
 ): SelectionRange {
   // Updated return type
   const paragraphs = documentSource.split("\n");
